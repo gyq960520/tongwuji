@@ -4,10 +4,12 @@
   left: 0;
   right: 0;
   height: 100rpx;
-  background: var(--bg);
+  background: #FFFFFF;       /* 显式写死，避免 var(--bg) 在 component 作用域里偶发解析失败导致透明 */
   display: flex;
   padding-bottom: env(safe-area-inset-bottom);
-  z-index: 999;
+  z-index: 9999;             /* 保证滚动时永远在最顶层 */
+  border-top: 1rpx solid #ECECEE;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 .tab-bar__item {
   flex: 1;

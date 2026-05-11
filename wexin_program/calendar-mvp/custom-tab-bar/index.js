@@ -4,6 +4,7 @@ Component({
     list: [
       { pagePath: '/pages/timeline/timeline', text: '近期' },
       { pagePath: '/pages/calendar/calendar', text: '日历' },
+      { pagePath: '/pages/investment/snapshot/snapshot', text: '持仓' },
       { pagePath: '/pages/profile/profile', text: '我们' }
     ]
   },

@@ -1,9 +1,17 @@
 {
   "pages": [
+    "pages/onboarding/onboarding",
     "pages/timeline/timeline",
     "pages/calendar/calendar",
     "pages/profile/profile",
-    "pages/event-edit/event-edit"
+    "pages/event-edit/event-edit",
+    "pages/investment/accounts/accounts",
+    "pages/investment/account-edit/account-edit",
+    "pages/investment/snapshot/snapshot",
+    "pages/investment/upload/upload",
+    "pages/investment/positions-edit/positions-edit",
+    "pages/investment/reflection-edit/reflection-edit",
+    "pages/investment/config/config"
   ],
   "window": {
     "navigationBarTitleText": "我俩",
@@ -21,9 +29,11 @@
     "list": [
       { "pagePath": "pages/timeline/timeline", "text": "近期" },
       { "pagePath": "pages/calendar/calendar", "text": "日历" },
+      { "pagePath": "pages/investment/snapshot/snapshot", "text": "持仓" },
       { "pagePath": "pages/profile/profile", "text": "我们" }
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
 }
