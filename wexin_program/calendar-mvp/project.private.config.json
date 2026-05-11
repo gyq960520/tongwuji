@@ -1,7 +1,19 @@
 {
   "libVersion": "3.16.0",
   "projectname": "calendar-mvp",
-  "condition": {},
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "pages/investment/accounts/accounts",
+          "pathName": "pages/investment/accounts/accounts",
+          "query": "",
+          "scene": null,
+          "launchMode": "default"
+        }
+      ]
+    }
+  },
   "setting": {
     "urlCheck": true,
     "coverView": false,

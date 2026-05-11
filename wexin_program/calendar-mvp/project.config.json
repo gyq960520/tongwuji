@@ -32,8 +32,9 @@
   },
   "compileType": "miniprogram",
   "libVersion": "2.32.0",
-  "appid": "wx14964a09b91308d7",
+  "appid": "wx1637afc17613fed5",
   "projectname": "calendar-mvp",
+  "cloudfunctionRoot": "cloudfunctions/",
   "condition": {},
   "simulatorPluginLibVersion": {},
   "editorSetting": {}

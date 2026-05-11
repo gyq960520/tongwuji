@@ -1,159 +1,236 @@
-// 数据访问层。当前是本地 storage 实现，将来接后端时只改这一个文件即可。
-// 所有页面对 events / settings 的读写都走这里，不要直接调 wx.setStorageSync。
+// 数据访问层。当前实现：微信云开发数据库。
+// 数据按 roomId 分隔，双人共享同一个小屋。
+//
+// 注意：db = wx.cloud.database() 在每个函数内部调用而不是模块顶部，
+// 因为本模块会在 app.onLaunch 之前被 pages[0] 的 require 加载，
+// 那时 wx.cloud.init 还没执行。
 
-const EVENTS_KEY = 'events';
-const SETTINGS_KEY = 'settings';
+// 内存缓存
+let _eventsCache = null
+let _settingsCache = null
+let _openid = null
+let _roomId = null
+let _inviteCode = null
 
-const cache = {
-  events: null,
-  settings: null
-};
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function genInviteCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let s = '';
-  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
-}
-
-function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-function ymd(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function load() {
-  if (cache.events === null) {
-    cache.events = wx.getStorageSync(EVENTS_KEY) || [];
+async function ensureOpenId() {
+  if (_openid) return _openid
+  // 优先从 app.globalData / storage 读（app.onLaunch 已预取）
+  try {
+    const app = getApp()
+    if (app && app.globalData && app.globalData.openid) {
+      _openid = app.globalData.openid
+      return _openid
+    }
+  } catch (e) {}
+  const cached = wx.getStorageSync('myOpenid')
+  if (cached) {
+    _openid = cached
+    return _openid
   }
-  if (cache.settings === null) {
-    cache.settings = wx.getStorageSync(SETTINGS_KEY) || {};
+  // 兜底：globalData 和 storage 都没有（例如 pages[0] 在 onLaunch 之前 require 本模块）
+  const res = await wx.cloud.callFunction({ name: 'getOpenId' })
+  _openid = res.result.openid
+  wx.setStorageSync('myOpenid', _openid)
+  return _openid
+}
+
+// ---------- 小屋 ----------
+
+async function getCurrentRoomId() {
+  if (_roomId) return _roomId
+  const cached = wx.getStorageSync('roomId')
+  if (cached) {
+    _roomId = cached
+    return _roomId
   }
-}
-
-function persistEvents() { wx.setStorageSync(EVENTS_KEY, cache.events); }
-function persistSettings() { wx.setStorageSync(SETTINGS_KEY, cache.settings); }
-
-function initStore() {
-  load();
-
-  if (!wx.getStorageSync(EVENTS_KEY)) {
-    const today = new Date();
-    const future = new Date(today);
-    future.setDate(future.getDate() + 3);
-    const now = Date.now();
-    cache.events = [
-      {
-        id: genId(),
-        title: '看一部电影',
-        type: 'date',
-        date: ymd(today),
-        time: '20:30',
-        note: '百老汇 MOMA · 花样年华',
-        createdAt: now,
-        updatedAt: now
-      },
-      {
-        id: genId(),
-        title: '妈妈生日',
-        type: 'birthday',
-        date: ymd(future),
-        time: '',
-        note: '记得提前订蛋糕',
-        createdAt: now,
-        updatedAt: now
-      }
-    ];
-    persistEvents();
+  // 没缓存就查云端：哪个 room 的 members 包含我
+  const openid = await ensureOpenId()
+  const db = wx.cloud.database()
+  const res = await db.collection('rooms').where({
+    members: db.command.in([openid])
+  }).get()
+  if (res.data.length > 0) {
+    _roomId = res.data[0]._id
+    _inviteCode = res.data[0].inviteCode
+    wx.setStorageSync('roomId', _roomId)
+    return _roomId
   }
+  return null
+}
 
-  if (!wx.getStorageSync(SETTINGS_KEY)) {
-    cache.settings = {
-      anniversaryDate: '',
-      inviteCode: genInviteCode()
-    };
-    persistSettings();
+async function createRoom() {
+  const openid = await ensureOpenId()
+  const db = wx.cloud.database()
+  const inviteCode = generateInviteCode()
+  const data = {
+    inviteCode,
+    members: [openid],
+    createdAt: Date.now()
   }
+  const res = await db.collection('rooms').add({ data })
+  _roomId = res._id
+  _inviteCode = inviteCode
+  wx.setStorageSync('roomId', _roomId)
+  return { roomId: _roomId, inviteCode }
 }
 
-function getEvents() {
-  load();
-  return cache.events.slice();
+async function joinRoom(inviteCode) {
+  // 用云函数加入，因为 rooms 记录不是自己创建的，前端没权限改
+  const res = await wx.cloud.callFunction({
+    name: 'joinRoom',
+    data: { inviteCode: inviteCode.toUpperCase() }
+  })
+  if (res.result.success) {
+    _roomId = res.result.roomId
+    _inviteCode = inviteCode.toUpperCase()
+    wx.setStorageSync('roomId', _roomId)
+    return { success: true }
+  }
+  return { success: false, error: res.result.error }
 }
 
-function getEventById(id) {
-  load();
-  return cache.events.find(e => e.id === id) || null;
+async function getInviteCode() {
+  if (_inviteCode) return _inviteCode
+  const roomId = await getCurrentRoomId()
+  if (!roomId) return null
+  const db = wx.cloud.database()
+  const res = await db.collection('rooms').doc(roomId).get()
+  _inviteCode = res.data.inviteCode
+  return _inviteCode
 }
 
-function addEvent(event) {
-  load();
-  const now = Date.now();
-  const e = {
-    id: genId(),
+async function leaveRoom() {
+  // MVP 不实现真正的退出，只清本地缓存（用于切换账号测试）
+  _roomId = null
+  _inviteCode = null
+  _eventsCache = null
+  _settingsCache = null
+  wx.removeStorageSync('roomId')
+}
+
+// ---------- 事件 ----------
+
+async function getEvents() {
+  if (_eventsCache) return _eventsCache
+  const roomId = await getCurrentRoomId()
+  if (!roomId) return []
+  const db = wx.cloud.database()
+  const res = await db.collection('events').where({ roomId }).orderBy('date', 'asc').get()
+  // 把 _id 同时暴露成 id，让旧调用方（event-item / 页面）零改动
+  _eventsCache = res.data.map(e => ({ ...e, id: e._id }))
+  return _eventsCache
+}
+
+async function addEvent(event) {
+  const roomId = await getCurrentRoomId()
+  if (!roomId) throw new Error('未加入小屋')
+  const db = wx.cloud.database()
+  const now = Date.now()
+  const data = {
+    roomId,
     title: event.title,
-    type: event.type || 'date',
+    type: event.type,
     date: event.date,
     time: event.time || '',
     note: event.note || '',
     createdAt: now,
     updatedAt: now
-  };
-  cache.events.push(e);
-  persistEvents();
-  return e;
+  }
+  const res = await db.collection('events').add({ data })
+  data._id = res._id
+  data.id = res._id
+  _eventsCache = null
+  return data
 }
 
-function updateEvent(id, patch) {
-  load();
-  const i = cache.events.findIndex(e => e.id === id);
-  if (i === -1) return null;
-  cache.events[i] = Object.assign({}, cache.events[i], patch, { updatedAt: Date.now() });
-  persistEvents();
-  return cache.events[i];
+async function updateEvent(id, patch) {
+  // 注意：权限是"仅创建者可写"，对方创建的事件这里会失败。MVP 接受这个限制。
+  const db = wx.cloud.database()
+  const data = { ...patch, updatedAt: Date.now() }
+  await db.collection('events').doc(id).update({ data })
+  _eventsCache = null
 }
 
-function deleteEvent(id) {
-  load();
-  cache.events = cache.events.filter(e => e.id !== id);
-  persistEvents();
+async function deleteEvent(id) {
+  const db = wx.cloud.database()
+  await db.collection('events').doc(id).remove()
+  _eventsCache = null
 }
 
-function getEventsByDate(dateStr) {
-  load();
-  return cache.events.filter(e => e.date === dateStr);
+async function getEventById(id) {
+  const events = await getEvents()
+  return events.find(e => e._id === id || e.id === id)
 }
 
-function getEventsInRange(start, end) {
-  load();
-  return cache.events.filter(e => e.date >= start && e.date <= end);
+async function getEventsByDate(dateStr) {
+  const events = await getEvents()
+  return events.filter(e => e.date === dateStr)
 }
 
-function clearAll() {
-  cache.events = [];
-  cache.settings = { anniversaryDate: '', inviteCode: genInviteCode() };
-  persistEvents();
-  persistSettings();
+async function getEventsInRange(startStr, endStr) {
+  const events = await getEvents()
+  return events.filter(e => e.date >= startStr && e.date <= endStr)
 }
 
-function getSettings() {
-  load();
-  return Object.assign({}, cache.settings);
+// ---------- 设置 ----------
+
+async function getSettings() {
+  if (_settingsCache) return _settingsCache
+  const roomId = await getCurrentRoomId()
+  if (!roomId) return { anniversaryDate: '' }
+  const db = wx.cloud.database()
+  const res = await db.collection('settings').where({ roomId }).limit(1).get()
+  if (res.data.length === 0) {
+    const defaultSettings = {
+      roomId,
+      anniversaryDate: ''
+    }
+    const addRes = await db.collection('settings').add({ data: defaultSettings })
+    defaultSettings._id = addRes._id
+    _settingsCache = defaultSettings
+  } else {
+    _settingsCache = res.data[0]
+  }
+  return _settingsCache
 }
 
-function updateSettings(patch) {
-  load();
-  cache.settings = Object.assign({}, cache.settings, patch);
-  persistSettings();
-  return Object.assign({}, cache.settings);
+async function updateSettings(patch) {
+  const settings = await getSettings()
+  const db = wx.cloud.database()
+  await db.collection('settings').doc(settings._id).update({ data: patch })
+  _settingsCache = null
+}
+
+async function clearAll() {
+  const events = await getEvents()
+  const db = wx.cloud.database()
+  for (const e of events) {
+    try {
+      await db.collection('events').doc(e._id).remove()
+    } catch (err) {
+      // 对方创建的事件无法删除（仅创建者可写），跳过
+    }
+  }
+  _eventsCache = null
+}
+
+function generateInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 去除 I O 0 1
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
 }
 
 module.exports = {
-  initStore,
+  // 小屋
+  getCurrentRoomId,
+  createRoom,
+  joinRoom,
+  getInviteCode,
+  leaveRoom,
+  // 事件
   getEvents,
   getEventById,
   addEvent,
@@ -161,7 +238,8 @@ module.exports = {
   deleteEvent,
   getEventsByDate,
   getEventsInRange,
-  clearAll,
+  // 设置
   getSettings,
-  updateSettings
-};
+  updateSettings,
+  clearAll
+}

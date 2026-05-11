@@ -1,0 +1,31 @@
+<view class="onboarding">
+  <view class="onboarding__hero">
+    <view class="onboarding__title">我俩</view>
+    <view class="onboarding__subtitle text-tertiary">记录我们的日子</view>
+  </view>
+
+  <view class="onboarding__gap"></view>
+
+  <block wx:if="{{mode === 'default'}}">
+    <view class="onboarding__btn-primary" bindtap="onShowCreate" hover-class="onboarding__btn--hover">
+      创建新小屋
+    </view>
+    <view class="onboarding__btn-secondary" bindtap="onSwitchToJoin" hover-class="onboarding__btn--hover">
+      加入对方的小屋
+    </view>
+  </block>
+
+  <block wx:if="{{mode === 'join'}}">
+    <view class="onboarding__hint text-secondary">请输入对方的 6 位邀请码</view>
+    <input
+      class="onboarding__code-input"
+      type="text"
+      value="{{inviteCode}}"
+      bindinput="onInputCode"
+      maxlength="6" />
+    <view class="onboarding__btn-primary onboarding__confirm" bindtap="onConfirmJoin" hover-class="onboarding__btn--hover">
+      确认加入
+    </view>
+    <view class="onboarding__back text-tertiary" bindtap="onSwitchBack">返回</view>
+  </block>
+</view>
