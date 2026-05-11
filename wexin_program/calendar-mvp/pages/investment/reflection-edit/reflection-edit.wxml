@@ -1,0 +1,12 @@
+<view class="page">
+  <textarea
+    class="reflection__textarea"
+    placeholder="写下本期的想法、变化、思考……"
+    placeholder-class="reflection__placeholder"
+    value="{{content}}"
+    bindinput="onInput"
+    auto-focus="{{true}}"
+    maxlength="-1" />
+
+  <view class="reflection__save-btn" bindtap="onSave">保存</view>
+</view>

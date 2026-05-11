@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="subtitle">管理你的证券账户与银行账户</view>
+  <view class="section-title">账户</view>
+  <view class="section-divider"></view>
+
+  <view wx:if="{{accounts.length === 0}}" class="empty-state">
+    还没有账户，点右下加号添加第一个
+  </view>
+
+  <block wx:for="{{accounts}}" wx:key="_id">
+    <view wx:if="{{index > 0}}" class="divider-soft"></view>
+    <view class="account-item" data-id="{{item._id}}" bindtap="onTapAccount" hover-class="account-item--hover">
+      <view class="account-item__main">
+        <view class="account-item__name">{{item.name}}</view>
+        <view class="account-item__meta">{{brokerLabel[item.broker]}} · {{currencyLabel[item.currency]}}</view>
+      </view>
+      <text class="account-item__arrow">›</text>
+    </view>
+  </block>
+
+  <view class="fab" bindtap="onTapAdd" hover-class="fab--hover">
+    <text class="fab__icon">+</text>
+  </view>
+</view>

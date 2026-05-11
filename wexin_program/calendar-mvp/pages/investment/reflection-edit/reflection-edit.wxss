@@ -1,0 +1,28 @@
+.page {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.reflection__textarea {
+  width: 100%;
+  min-height: 600rpx;
+  font-size: var(--fs-base);
+  color: var(--text-primary);
+  line-height: 1.6;
+  background: transparent;
+  box-sizing: border-box;
+}
+.reflection__placeholder {
+  color: var(--text-tertiary);
+}
+
+.reflection__save-btn {
+  margin-top: 60rpx;
+  background: var(--text-primary);
+  color: #FFFFFF;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  border-radius: 24rpx;
+}

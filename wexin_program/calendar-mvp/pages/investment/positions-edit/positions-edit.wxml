@@ -1,0 +1,88 @@
+<view class="page">
+  <view class="edit__top-row">
+    <text class="edit__top">核对并修改识别结果，然后保存</text>
+    <text class="edit__sum tnum">合计 {{currencySumDisplay || '—'}}</text>
+  </view>
+  <view class="edit__account">{{accountLabel}}</view>
+  <view wx:if="{{expectedTotalDisplay}}" class="edit__expected text-tertiary tnum">
+    截图总资产 {{defaultCurrency}} {{expectedTotalDisplay}}（保存时会校验）
+  </view>
+  <view class="edit__rule"></view>
+
+  <block wx:for="{{list}}" wx:key="index">
+    <view class="edit__row">
+      <!-- 行 1：名称 + 删除 -->
+      <view class="edit__row-line edit__row-line--head">
+        <input class="edit__input edit__input--name"
+               placeholder="名称"
+               value="{{item.name}}"
+               data-index="{{index}}" data-field="name"
+               bindinput="onInputField" />
+        <text class="edit__del" data-index="{{index}}" bindtap="onRemoveRow">×</text>
+      </view>
+
+      <!-- 行 2：代码（紧贴名称下方，通常空） -->
+      <view class="edit__row-line edit__row-line--code">
+        <input class="edit__input edit__input--code"
+               placeholder="代码（可空，如 600519）"
+               value="{{item.code}}"
+               data-index="{{index}}" data-field="code"
+               bindinput="onInputField" />
+      </view>
+
+      <!-- 行 3：类型胶囊 -->
+      <scroll-view scroll-x="true" class="edit__chips">
+        <view class="edit__chips-inner">
+          <block wx:for="{{categories}}" wx:for-item="c" wx:key="key">
+            <view class="edit__chip {{item.category === c.key ? 'edit__chip--active' : ''}}"
+                  style="{{item.category === c.key ? 'background:' + c.color + ';color:#FFFFFF;border-color:' + c.color : ''}}"
+                  data-index="{{index}}" data-key="{{c.key}}"
+                  bindtap="onPickCategory">{{c.label}}</view>
+          </block>
+        </view>
+      </scroll-view>
+
+      <!-- 行 4：币种 + 金额 -->
+      <view class="edit__row-line">
+        <text class="edit__label">金额</text>
+        <view class="edit__currency-tag" data-index="{{index}}" bindtap="onCycleCurrency">{{item.currency}}</view>
+        <input class="edit__input edit__input--amount tnum"
+               type="digit"
+               placeholder="0.00"
+               value="{{item.amount}}"
+               data-index="{{index}}" data-field="amount"
+               bindinput="onInputField" />
+      </view>
+
+      <!-- 行 5：数量 × 单价（保存时校验是否 ≈ 金额） -->
+      <view class="edit__row-line edit__row-line--compute">
+        <input class="edit__input edit__input--qty tnum"
+               type="digit"
+               placeholder="数量"
+               value="{{item.quantity}}"
+               data-index="{{index}}" data-field="quantity"
+               bindinput="onInputField" />
+        <text class="edit__op">×</text>
+        <input class="edit__input edit__input--price tnum"
+               type="digit"
+               placeholder="单价"
+               value="{{item.unitPrice}}"
+               data-index="{{index}}" data-field="unitPrice"
+               bindinput="onInputField" />
+      </view>
+
+      <!-- 行 6：备注（小字段） -->
+      <view class="edit__row-line edit__row-line--small">
+        <input class="edit__input edit__input--note"
+               placeholder="备注（可空）"
+               value="{{item.note}}"
+               data-index="{{index}}" data-field="note"
+               bindinput="onInputField" />
+      </view>
+    </view>
+  </block>
+
+  <view class="edit__add-row" bindtap="onAddRow">+ 手动添加一项</view>
+
+  <view class="edit__save-btn" bindtap="onSave">保存入库</view>
+</view>

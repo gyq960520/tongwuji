@@ -1,0 +1,153 @@
+.page {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.edit__top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.edit__top {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+.edit__sum {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.edit__account {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-top: 16rpx;
+}
+.edit__expected {
+  font-size: var(--fs-xs);
+  margin-top: 8rpx;
+}
+.edit__rule {
+  height: 1rpx;
+  background: var(--divider);
+  margin: 16rpx 0 8rpx;
+}
+
+.edit__row {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--divider-soft);
+}
+.edit__row-line {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 0;
+}
+.edit__row-line--head {
+  margin-bottom: 0;
+}
+.edit__row-line--code {
+  padding: 0 0 4rpx;
+}
+.edit__row-line--small .edit__input {
+  font-size: var(--fs-sm);
+}
+.edit__row-line--compute {
+  flex-wrap: wrap;
+}
+
+.edit__label {
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+  width: 96rpx;
+  flex-shrink: 0;
+}
+.edit__op {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin: 0 16rpx;
+}
+
+.edit__input {
+  flex: 1;
+  font-size: var(--fs-base);
+  color: var(--text-primary);
+  background: transparent;
+  padding: 8rpx 0;
+}
+.edit__input--name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+}
+.edit__input--code {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.edit__input--amount {
+  text-align: right;
+}
+.edit__input--qty,
+.edit__input--price {
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+}
+.edit__input--note {
+  font-size: var(--fs-sm);
+}
+
+.edit__del {
+  font-size: var(--fs-base);
+  color: var(--text-tertiary);
+  padding: 0 16rpx 0 24rpx;
+}
+
+/* 币种标签：点击循环 CNY → USD → HKD */
+.edit__currency-tag {
+  font-size: var(--fs-xs);
+  color: var(--text-primary);
+  background: var(--divider-soft);
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.edit__chips {
+  white-space: nowrap;
+  padding: 10rpx 0;
+  width: 100%;
+}
+.edit__chips-inner {
+  display: inline-flex;
+  gap: 12rpx;
+}
+.edit__chip {
+  flex-shrink: 0;
+  display: inline-block;
+  height: 48rpx;
+  line-height: 44rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid var(--divider);
+  font-size: var(--fs-xxs);
+  color: var(--text-tertiary);
+  background: transparent;
+}
+
+.edit__add-row {
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  padding: 32rpx 0;
+  text-align: left;
+}
+
+.edit__save-btn {
+  margin-top: 48rpx;
+  background: var(--text-primary);
+  color: #FFFFFF;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  border-radius: 24rpx;
+}

@@ -1,0 +1,54 @@
+<view class="page config">
+  <!-- 本人账户（最上） -->
+  <view class="config__section">
+    <view class="config__subtitle">本人账户</view>
+    <view class="config__hint">配置自己的证券 / 银行 / 海外账户。识别截图时只能从这里选。</view>
+
+    <view class="config__row config__row--editable" bindtap="onGoAccounts" hover-class="config__row--hover">
+      <text class="config__label">进入账户管理</text>
+      <text class="config__arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 大类目标占比 -->
+  <view class="config__section">
+    <view class="config__subtitle">大类目标占比</view>
+    <view wx:if="{{snapshotId}}" class="config__hint">{{snapshotName}}。改任意一项，差额自动吸入"其他"。"其他"由系统锁定，不可手动修改。</view>
+    <view wx:else class="config__hint">还没有进行中的盘仓。回持仓页新建本期后再配置目标。</view>
+
+    <block wx:if="{{snapshotId}}">
+      <view wx:for="{{targetList}}" wx:key="key" class="config__row">
+        <view class="config__dot" style="background: {{item.color}};"></view>
+        <text class="config__label">{{item.label}}</text>
+        <block wx:if="{{item.key === 'other'}}">
+          <text class="config__locked tnum">{{item.percentNum}}</text>
+        </block>
+        <block wx:else>
+          <input class="config__input tnum"
+                 type="digit"
+                 value="{{item.percentNum}}"
+                 data-key="{{item.key}}"
+                 bindblur="onTargetBlur"
+                 bindconfirm="onTargetBlur"
+                 confirm-type="done"
+                 maxlength="3" />
+        </block>
+        <text class="config__unit">%</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 大类产品定义（只读） -->
+  <view class="config__section">
+    <view class="config__subtitle">大类产品定义</view>
+    <view class="config__hint">当前固定为以下 7 大类。未来支持按你和 ta 的偏好自定义。</view>
+
+    <view wx:for="{{categories}}" wx:key="key" class="config__row config__row--cat">
+      <view class="config__dot config__dot--cat" style="background: {{item.color}};"></view>
+      <view class="config__cat-text">
+        <text class="config__cat-label">{{item.label}}</text>
+        <text class="config__cat-desc">{{item.desc}}</text>
+      </view>
+    </view>
+  </view>
+</view>

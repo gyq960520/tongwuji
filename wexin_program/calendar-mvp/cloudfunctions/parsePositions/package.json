@@ -1,0 +1,9 @@
+{
+  "name": "parsePositions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3",
+    "got": "^11.8.6"
+  }
+}

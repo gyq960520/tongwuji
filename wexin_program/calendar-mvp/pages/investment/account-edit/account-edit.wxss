@@ -1,0 +1,73 @@
+.page {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.field {
+  padding: 28rpx 0;
+  display: flex;
+  align-items: center;
+}
+.field__label {
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.field__input {
+  flex: 1;
+  font-size: var(--fs-xl);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+}
+.field__placeholder {
+  color: var(--text-tertiary);
+}
+.field__value {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-lg);
+  color: var(--text-secondary);
+}
+.field__arrow {
+  font-size: var(--fs-base);
+  color: var(--text-tertiary);
+  margin-left: 16rpx;
+}
+.field-divider {
+  height: 1rpx;
+  background: var(--divider);
+}
+.field__hint {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  padding: 0 0 16rpx;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 96rpx;
+}
+.btn-delete {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: transparent;
+  color: var(--danger);
+  font-size: var(--fs-lg);
+  text-align: center;
+}
+.btn-save {
+  flex: 2;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: var(--text-primary);
+  color: #FFFFFF;
+  border-radius: 24rpx;
+  font-size: var(--fs-lg);
+  text-align: center;
+}
+.btn-save--full {
+  flex: 1;
+}

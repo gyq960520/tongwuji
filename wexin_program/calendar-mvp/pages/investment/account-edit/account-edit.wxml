@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="field">
+    <input
+      class="field__input"
+      placeholder="如：招商证券 A 股 / 招行活期"
+      placeholder-class="field__placeholder"
+      value="{{name}}"
+      bindinput="onInputName"
+      maxlength="40" />
+  </view>
+  <view class="field-divider"></view>
+
+  <picker mode="selector" range="{{brokers}}" range-key="label" value="{{brokerIndex}}" bindchange="onPickBroker">
+    <view class="field">
+      <text class="field__label">机构</text>
+      <text class="field__value">{{brokerLabel}}</text>
+      <text class="field__arrow">›</text>
+    </view>
+  </picker>
+  <view class="field-divider"></view>
+
+  <picker mode="selector" range="{{currencies}}" range-key="label" value="{{currencyIndex}}" bindchange="onPickCurrency">
+    <view class="field">
+      <text class="field__label">货币</text>
+      <text class="field__value">{{currencyLabel}}</text>
+      <text class="field__arrow">›</text>
+    </view>
+  </picker>
+  <view class="field__hint">选择账户主要币种，仅用于后台计算</view>
+  <view class="field-divider"></view>
+
+  <view class="actions">
+    <view wx:if="{{isEdit}}" class="btn-delete" bindtap="onDelete">删除</view>
+    <view class="btn-save {{isEdit ? '' : 'btn-save--full'}}" bindtap="onSave">保存</view>
+  </view>
+</view>

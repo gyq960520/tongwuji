@@ -1,0 +1,114 @@
+.config {
+  padding: 0 32rpx 200rpx;
+}
+
+.config__section {
+  margin-top: 56rpx;
+}
+
+.config__subtitle {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-bottom: 12rpx;
+}
+.config__hint {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  margin-bottom: 20rpx;
+}
+
+.config__row {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--divider-soft);
+}
+.config__row:last-child {
+  border-bottom: none;
+}
+.config__row--hover {
+  opacity: 0.6;
+}
+
+.config__dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.config__label {
+  flex: 1;
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+}
+.config__value {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-right: 12rpx;
+}
+.config__arrow {
+  font-size: var(--fs-base);
+  color: var(--text-tertiary);
+}
+
+/* 目标占比行内输入：浅灰底胶囊，右对齐数字 + 右侧 % */
+.config__input {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  background: #F8F8F6;
+  border-radius: 10rpx;
+  width: 96rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 14rpx;
+  text-align: right;
+  box-sizing: border-box;
+}
+.config__unit {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-left: 8rpx;
+}
+/* "其他" 锁死：与输入框等宽等高，但灰底 + 不可编辑指示 */
+.config__locked {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-tertiary);
+  width: 96rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 14rpx;
+  text-align: right;
+  box-sizing: border-box;
+}
+
+/* 大类产品定义：每行带描述文字 */
+.config__row--cat {
+  align-items: flex-start;
+}
+.config__dot--cat {
+  margin-top: 14rpx;
+}
+.config__cat-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.config__cat-label {
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.config__cat-desc {
+  margin-top: 6rpx;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}

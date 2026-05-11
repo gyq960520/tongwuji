@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="upload__top">为单个账户上传一张或多张持仓截图，AI 会识别后让你核对</view>
+
+  <picker mode="selector" range="{{accountNames}}" value="{{accountIndex}}" disabled="{{accountFixed}}" bindchange="onPickAccount">
+    <view class="upload__field">
+      <text class="upload__field-label">账户</text>
+      <text class="upload__field-value">{{accountLabel}}</text>
+      <text wx:if="{{!accountFixed}}" class="upload__field-arrow">›</text>
+    </view>
+  </picker>
+  <view class="upload__rule"></view>
+
+  <view class="upload__images">
+    <block wx:for="{{images}}" wx:key="tempPath">
+      <view class="upload__image">
+        <image src="{{item.tempPath}}" mode="aspectFill" class="upload__image-img" />
+        <view class="upload__image-del" data-index="{{index}}" catchtap="onRemoveImage">×</view>
+      </view>
+    </block>
+    <view wx:if="{{images.length < 9}}" class="upload__image upload__image--add" bindtap="onChooseImages">
+      <text class="upload__image-plus">+</text>
+    </view>
+  </view>
+  <view class="upload__hint">已选 {{images.length}}/9 张</view>
+  <view class="upload__rule"></view>
+
+  <view class="upload__btn {{!accountId || images.length === 0 || uploading || parsing ? 'upload__btn--disabled' : ''}}" bindtap="onStartParse">
+    开始识别
+  </view>
+</view>
