@@ -1,0 +1,79 @@
+page {
+  /* color */
+  --bg: #FFFFFF;
+  --text-primary: #1D1D1F;
+  --text-secondary: #6E6E73;
+  --text-tertiary: #9A9AA1;
+  --text-disabled: #D5D5DA;
+  --text-empty: #B4B4BA;
+  --divider: #ECECEE;
+  --divider-soft: #F2F2F4;
+  --danger: #D9483B;
+
+  /* font-size — size-based naming，跟用途解耦，未来用途变了也不用改 token 名 */
+  --fs-xxs:  22rpx;  /* 周一二三 / 日历格子 emoji */
+  --fs-xs:   24rpx;  /* 日期分组小标题 / 邀请码 label / 提示 */
+  --fs-sm:   26rpx;  /* 时间 / 备注 / 顶部小日期 / 空状态 / tab */
+  --fs-base: 28rpx;  /* 默认正文 / 日历日期数字 / 编辑页 label */
+  --fs-md:   30rpx;  /* 保存按钮 / 我们页行 / btn-primary */
+  --fs-lg:   32rpx;  /* 事件标题 / 月份切换 */
+  --fs-xl:   36rpx;  /* 事件 emoji / 编辑页标题 input */
+  --fs-2xl:  44rpx;  /* 段标题 / 日历箭头 / FAB + */
+  --fs-3xl:  56rpx;  /* 「我们一起 X 天了」hero */
+  --fs-4xl:  64rpx;  /* 邀请码大字 */
+
+  /* font-weight */
+  --fw-regular: 400;
+  --fw-bold:    500;
+
+  /* radius */
+  --radius-circle: 50%;
+  --radius-pill:   999rpx;
+  --radius-button: 44rpx;
+
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'PingFang SC', -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'tnum' on, 'kern' on;
+}
+
+.page {
+  padding: 0 48rpx;
+  padding-bottom: 220rpx;
+}
+
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-danger { color: var(--danger); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* 段内事件之间的细分隔线，左缩对齐到标题列起点
+   12rpx 圆点 + 12rpx gap + 44rpx emoji + 28rpx gap = 96rpx */
+.event-divider {
+  height: 1rpx;
+  background: var(--divider-soft);
+  margin-left: 96rpx;
+}
+
+/* 段间分组分隔线（多日期组之间） */
+.group-rule {
+  height: 1rpx;
+  background: var(--divider-soft);
+  margin: 32rpx 0;
+}
+
+.btn-primary {
+  background: var(--text-primary);
+  color: var(--bg);
+  border-radius: var(--radius-button);
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+}

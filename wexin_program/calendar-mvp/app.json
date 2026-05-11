@@ -1,0 +1,29 @@
+{
+  "pages": [
+    "pages/timeline/timeline",
+    "pages/calendar/calendar",
+    "pages/profile/profile",
+    "pages/event-edit/event-edit"
+  ],
+  "window": {
+    "navigationBarTitleText": "我俩",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FFFFFF",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#9A9AA1",
+    "selectedColor": "#1D1D1F",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/timeline/timeline", "text": "近期" },
+      { "pagePath": "pages/calendar/calendar", "text": "日历" },
+      { "pagePath": "pages/profile/profile", "text": "我们" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

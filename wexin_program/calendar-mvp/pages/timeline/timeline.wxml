@@ -1,0 +1,54 @@
+<view class="page timeline">
+  <view class="timeline__top tnum">{{todayLabel}}</view>
+
+  <!-- 今天 -->
+  <view class="timeline__section">
+    <view class="timeline__section-title">今天</view>
+    <view class="timeline__section-rule"></view>
+    <view wx:if="{{todayEvents.length === 0}}" class="timeline__empty">今天没有安排</view>
+    <view wx:else>
+      <block wx:for="{{todayEvents}}" wx:key="id">
+        <view wx:if="{{index > 0}}" class="event-divider"></view>
+        <event-item event="{{item}}" bind:select="onTapEvent" />
+      </block>
+    </view>
+  </view>
+
+  <!-- 本周 -->
+  <view class="timeline__section">
+    <view class="timeline__section-title">本周</view>
+    <view class="timeline__section-rule"></view>
+    <view wx:if="{{weekGroups.length === 0}}" class="timeline__empty">本周没有其他安排</view>
+    <view wx:else>
+      <block wx:for="{{weekGroups}}" wx:for-item="group" wx:for-index="gi" wx:key="date">
+        <view wx:if="{{gi > 0}}" class="group-rule"></view>
+        <view class="timeline__group-label tnum">{{group.label}}</view>
+        <block wx:for="{{group.events}}" wx:for-item="ev" wx:for-index="ei" wx:key="id">
+          <view wx:if="{{ei > 0}}" class="event-divider"></view>
+          <event-item event="{{ev}}" bind:select="onTapEvent" />
+        </block>
+      </block>
+    </view>
+  </view>
+
+  <!-- 未来 -->
+  <view class="timeline__section">
+    <view class="timeline__section-title">未来</view>
+    <view class="timeline__section-rule"></view>
+    <view wx:if="{{futureGroups.length === 0}}" class="timeline__empty">近 90 天没有事件</view>
+    <view wx:else>
+      <block wx:for="{{futureGroups}}" wx:for-item="group" wx:for-index="gi" wx:key="date">
+        <view wx:if="{{gi > 0}}" class="group-rule"></view>
+        <view class="timeline__group-label tnum">{{group.label}}</view>
+        <block wx:for="{{group.events}}" wx:for-item="ev" wx:for-index="ei" wx:key="id">
+          <view wx:if="{{ei > 0}}" class="event-divider"></view>
+          <event-item event="{{ev}}" bind:select="onTapEvent" />
+        </block>
+      </block>
+    </view>
+  </view>
+
+  <view class="timeline__fab" bindtap="onAdd" hover-class="timeline__fab--hover">
+    <text class="timeline__fab-icon">+</text>
+  </view>
+</view>

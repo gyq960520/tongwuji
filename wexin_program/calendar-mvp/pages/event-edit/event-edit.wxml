@@ -1,0 +1,58 @@
+<view class="page edit">
+  <view class="edit__row">
+    <input
+      class="edit__title"
+      placeholder="做点什么"
+      placeholder-class="edit__placeholder"
+      value="{{title}}"
+      bindinput="onTitleInput"
+      maxlength="40" />
+  </view>
+
+  <view class="edit__row edit__row--type">
+    <view class="edit__label text-secondary">分类</view>
+    <view class="edit__type-list">
+      <view
+        wx:for="{{typeOptions}}"
+        wx:key="key"
+        class="edit__type {{type === item.key ? 'edit__type--active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onSelectType">
+        <text class="edit__type-emoji">{{item.emoji}}</text>
+        <text class="edit__type-label">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <picker mode="date" value="{{date}}" bindchange="onPickDate">
+    <view class="edit__row edit__row--picker">
+      <text class="edit__label text-secondary">日期</text>
+      <text class="edit__value tnum">{{dateLabel || '请选择'}} ›</text>
+    </view>
+  </picker>
+
+  <view class="edit__row edit__row--picker">
+    <picker mode="time" value="{{time}}" bindchange="onPickTime" class="edit__time-picker">
+      <view class="edit__time-inner">
+        <text class="edit__label text-secondary">时间</text>
+        <text class="edit__value tnum">{{time ? time + ' ›' : '全天 ›'}}</text>
+      </view>
+    </picker>
+    <text wx:if="{{time}}" class="edit__clear text-tertiary" catchtap="onClearTime">清除</text>
+  </view>
+
+  <view class="edit__row">
+    <textarea
+      class="edit__note"
+      placeholder="备注（可选）"
+      placeholder-class="edit__placeholder"
+      value="{{note}}"
+      bindinput="onNoteInput"
+      maxlength="-1" />
+  </view>
+
+  <view class="edit__actions {{isEdit ? 'edit__actions--two' : ''}}">
+    <view wx:if="{{isEdit}}" class="edit__delete" bindtap="onDelete">删除</view>
+    <view class="edit__save" bindtap="onSave">保存</view>
+  </view>
+</view>

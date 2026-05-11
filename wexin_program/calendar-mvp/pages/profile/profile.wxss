@@ -1,0 +1,60 @@
+.profile__hero {
+  padding: 96rpx 0 0;
+}
+.profile__big {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.profile__since {
+  font-size: var(--fs-sm);
+  margin-top: 16rpx;
+}
+
+.profile__invite {
+  margin-top: 72rpx;
+}
+.profile__invite-label {
+  font-size: var(--fs-xs);
+}
+.profile__invite-code {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  letter-spacing: 12rpx;
+  margin-top: 12rpx;
+}
+.profile__invite-hint {
+  font-size: var(--fs-xs);
+  margin-top: 12rpx;
+}
+
+.profile__list {
+  margin-top: 72rpx;
+}
+.profile__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 0;
+}
+.profile__row--hover {
+  opacity: 0.6;
+}
+.profile__row-label {
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+}
+.profile__row-value {
+  font-size: var(--fs-md);
+}
+.profile__row-danger {
+  font-size: var(--fs-md);
+  color: var(--danger);
+}
+.profile__row-rule {
+  height: 1rpx;
+  background: var(--divider-soft);
+}

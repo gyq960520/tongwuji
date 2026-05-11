@@ -1,0 +1,31 @@
+<view class="page profile">
+  <picker mode="date" value="{{anniversaryDate}}" bindchange="onPickAnniversary">
+    <view class="profile__hero">
+      <block wx:if="{{anniversaryDate}}">
+        <view class="profile__big">我们一起</view>
+        <view class="profile__big tnum">{{daysLabel}} 天了</view>
+        <view class="profile__since text-tertiary tnum">{{anniversaryLabel}}</view>
+      </block>
+      <block wx:else>
+        <view class="profile__big">设置纪念日 →</view>
+      </block>
+    </view>
+  </picker>
+
+  <view class="profile__invite">
+    <view class="profile__invite-label text-tertiary">邀请码</view>
+    <view class="profile__invite-code tnum">{{inviteCode}}</view>
+    <view class="profile__invite-hint text-tertiary">对方输入此码即可加入小屋（暂未启用）</view>
+  </view>
+
+  <view class="profile__list">
+    <view class="profile__row">
+      <text class="profile__row-label">事件总数</text>
+      <text class="profile__row-value tnum text-secondary">{{eventCount}}</text>
+    </view>
+    <view class="profile__row-rule"></view>
+    <view class="profile__row" bindtap="onClear" hover-class="profile__row--hover">
+      <text class="profile__row-danger">清空所有数据</text>
+    </view>
+  </view>
+</view>

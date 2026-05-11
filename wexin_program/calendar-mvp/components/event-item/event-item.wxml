@@ -1,0 +1,11 @@
+<view class="event-item" bindtap="onTap" wx:if="{{event}}">
+  <view class="event-item__dot" style="background:{{color}}"></view>
+  <view class="event-item__emoji">{{emoji}}</view>
+  <view class="event-item__main">
+    <view class="event-item__row">
+      <view class="event-item__title">{{event.title}}</view>
+      <view class="event-item__time tnum {{isAllDay ? 'text-tertiary' : 'text-secondary'}}">{{timeLabel}}</view>
+    </view>
+    <view wx:if="{{event.note}}" class="event-item__note text-tertiary">{{event.note}}</view>
+  </view>
+</view>

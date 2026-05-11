@@ -1,0 +1,39 @@
+<view class="page calendar">
+  <view class="calendar__nav">
+    <view class="calendar__arrow" bindtap="prevMonth">‹</view>
+    <view class="calendar__month tnum">{{monthLabel}}</view>
+    <view class="calendar__arrow" bindtap="nextMonth">›</view>
+  </view>
+
+  <view class="calendar__week">
+    <view wx:for="{{weekHeaders}}" wx:key="*this" class="calendar__week-cell">{{item}}</view>
+  </view>
+
+  <view class="calendar__grid">
+    <view
+      wx:for="{{grid}}"
+      wx:key="dateStr"
+      class="calendar__cell"
+      data-date="{{item.dateStr}}"
+      bindtap="onTapDay">
+      <view class="calendar__day-circle {{item.isToday ? 'calendar__day-circle--today' : ''}} {{item.isSelected && !item.isToday ? 'calendar__day-circle--selected' : ''}} {{!item.isCurrentMonth ? 'calendar__day-circle--out' : ''}} tnum">{{item.day}}</view>
+      <view class="calendar__day-emoji">{{item.emoji}}</view>
+    </view>
+  </view>
+
+  <view class="calendar__rule"></view>
+
+  <view class="calendar__day-label tnum text-secondary">{{selectedDateLabel}}</view>
+
+  <view wx:if="{{selectedEvents.length === 0}}" class="calendar__empty">这天没有安排</view>
+  <view wx:else>
+    <block wx:for="{{selectedEvents}}" wx:key="id">
+      <view wx:if="{{index > 0}}" class="event-divider"></view>
+      <event-item event="{{item}}" bind:select="onTapEvent" />
+    </block>
+  </view>
+
+  <view class="calendar__add-btn" bindtap="onAddOnDay" hover-class="calendar__add-btn--hover">
+    + 在这天添加
+  </view>
+</view>

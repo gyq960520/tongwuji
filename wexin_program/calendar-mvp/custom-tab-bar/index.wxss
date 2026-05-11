@@ -1,0 +1,23 @@
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background: var(--bg);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 999;
+}
+.tab-bar__item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+}
+.tab-bar__item--active {
+  color: var(--text-primary);
+  font-weight: var(--fw-bold);
+}

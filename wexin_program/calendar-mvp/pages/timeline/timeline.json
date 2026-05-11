@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "我俩",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "event-item": "/components/event-item/event-item"
+  }
+}
