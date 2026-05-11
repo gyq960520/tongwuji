@@ -152,10 +152,9 @@ function buildIbkrPrompt(_accountCurrency) {
 【账户特征】
 - 账户基础货币 = USD
 - 左上角"净清算价值" X,XXX = totalAssets（USD）
-- "市场价值"列默认是 USD
+- **"市场价值"列里所有数字都是 USD**（IBKR 已经把所有非 USD 持仓自动折算到 USD 显示）
+- 斜体 / 黄色高亮只是 UI 提示"原币种 != USD，此数已折算"，**不要因此换算汇率**，直接当 USD 用
 - 数字带 "K" 表示千倍：5.43K = 5430，1.60K = 1600，12.5K = 12500
-- 价格 / 数字若有斜体或黄色背景高亮，表示该列的币种**不是 USD**（典型是 HKD 港币）
-- 股票代码后缀若是 "SEHK"，是港股，币种 HKD
 - 数据来源标识 "GFIS" 不要识别
 
 【页面结构】
@@ -176,16 +175,25 @@ Tab：持仓 / 期权 / 余额 / 挂单 / 影响透镜
 - 不确定时，正常股票默认 "stock"
 
 【currency 判断】
-- 价格 / 数字斜体或黄色高亮 → 非 USD：看股票市场后缀，SEHK → "HKD"，其他外国市场对应推断
-- 现金：name 含 "CNH" 或 "CNY" → "CNY"（CNH 离岸人民币视为 CNY）；"USD" → "USD"；"HKD" → "HKD"
-- 默认 → "USD"
+- **所有股票 / ETF / 期权 → "USD"**（IBKR 投资组合页所有市场价值都统一在 USD 基础货币口径下；
+  斜体或市场后缀 SEHK 等都**不影响 currency 字段**——一律 USD）
+- 现金（底部"现金余额"区）：name 含 "CNH" 或 "CNY" → "CNY"（CNH 离岸人民币视为 CNY）；
+  "USD" 现金 → "USD"；"HKD" 现金 → "HKD"
 
-【amount 计算（重要，不同产品不同算法）】
-- USD 市场普通股票：amount = "市场价值"列（USD）
-- HKD 市场股票（如 1810 SEHK）：amount = shares × 最后价（HKD 原币值），**不要用 USD 市场价值列**
-- 期权（含 "Call"/"Put"）：amount = "市场价值"列（USD），**不要用 shares × price** —— 期权 1 张合约 = 100 股标的，shares×price 不等于市值
+【amount 计算】
+- 股票 / ETF：amount = "市场价值"列（USD），**直接取，不要 shares × price 自己算**
+  （非美股的 price 是原币种，shares × price ≠ USD 市值）
+- 期权（含 "Call"/"Put"）：amount = "市场价值"列（USD）
 - 现金：amount = 显示的数字（5.43K → 5430）
-- 空头（shares 是负数）：amount 也是负数，照实记录（不要取绝对值）
+- 空头（持仓列是负数）：amount 也是负数，照实记录（不要取绝对值）
+
+【shares 计算（注意期权特殊）】
+- 普通股票 / ETF：shares = "持仓"列原值
+- **期权**：shares = "持仓"列张数 × 100（1 张合约对应 100 股标的）
+  - "持仓" 显示 1   → shares 填 100
+  - "持仓" 显示 2   → shares 填 200
+  - "持仓" 显示 -1  → shares 填 -100（空头）
+- 现金：shares = null
 
 【name 处理】
 - 普通股票：只用 ticker，如 "KO"、"VOO"、"VEA"、"BOXX"、"1810"、"QQQ"、"IBKR"
@@ -219,18 +227,19 @@ Tab：持仓 / 期权 / 余额 / 挂单 / 影响透镜
   "positions": [
     {"name":"BOXX","code":"","category":"wealth","currency":"USD","shares":424.6147,"price":116.65,"amount":49532},
     {"name":"QQQ","code":"","category":"fund","currency":"USD","shares":31.6,"price":711.35,"amount":22479},
-    {"name":"1810","code":"","category":"stock","currency":"HKD","shares":1600,"price":31.70,"amount":50720},
+    {"name":"1810","code":"","category":"stock","currency":"USD","shares":1600,"price":31.70,"amount":6500},
     {"name":"VOO","code":"","category":"fund","currency":"USD","shares":6.522,"price":677.19,"amount":4418},
     {"name":"KO","code":"","category":"stock","currency":"USD","shares":50,"price":78.43,"amount":3922},
     {"name":"VEA","code":"","category":"fund","currency":"USD","shares":50,"price":70.64,"amount":3535},
-    {"name":"NVDA MAY 18 '26 195 Call","code":"","category":"other","currency":"USD","shares":1,"price":20.75,"amount":2087},
+    {"name":"NVDA MAY 18 '26 195 Call","code":"","category":"other","currency":"USD","shares":100,"price":20.75,"amount":2087},
     {"name":"IBKR","code":"","category":"stock","currency":"USD","shares":14.9238,"price":84.08,"amount":1258},
-    {"name":"VOO MAY 15 '26 640 Put","code":"","category":"other","currency":"USD","shares":-1,"price":0.26,"amount":-16.39},
-    {"name":"MU JUN 05 '26 630 Put","code":"","category":"other","currency":"USD","shares":-1,"price":23.33,"amount":-2350},
+    {"name":"VOO MAY 15 '26 640 Put","code":"","category":"other","currency":"USD","shares":-100,"price":0.26,"amount":-16.39},
+    {"name":"MU JUN 05 '26 630 Put","code":"","category":"other","currency":"USD","shares":-100,"price":23.33,"amount":-2350},
     {"name":"CNH 现金","code":"","category":"cash","currency":"CNY","shares":null,"price":null,"amount":5430},
     {"name":"USD 现金","code":"","category":"cash","currency":"USD","shares":null,"price":null,"amount":7070}
   ]
 }
+// 注：1810 持仓列原值 1600 是真实股数；price 31.70 是 HK$ 原币价格（仅作参考），amount 6500 是 IBKR 折算后的 USD 市值（直接抄"市场价值"列）。期权 shares 已 ×100。
 
 只输出纯 JSON 对象，不要 markdown 标记、不要解释文字。`
 }
