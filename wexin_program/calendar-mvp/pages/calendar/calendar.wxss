@@ -39,6 +39,7 @@
   align-items: center;
   padding-top: 8rpx;
   box-sizing: border-box;
+  position: relative;
 }
 .calendar__day-circle {
   width: 52rpx;
@@ -60,6 +61,25 @@
 }
 .calendar__day-circle--out {
   color: var(--text-disabled);
+}
+.calendar__day-circle--weekend {
+  color: var(--off-day-red);
+}
+
+/* 节假日 / 调休 角标，绝对定位在格子右上角 */
+.calendar__badge {
+  position: absolute;
+  top: 6rpx;
+  right: 8rpx;
+  font-size: 18rpx;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+}
+.calendar__badge--holiday {
+  color: var(--off-day-red);
+}
+.calendar__badge--work {
+  color: var(--badge-work);
 }
 .calendar__day-emoji {
   height: 24rpx;

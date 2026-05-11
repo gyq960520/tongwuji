@@ -16,7 +16,9 @@
       class="calendar__cell"
       data-date="{{item.dateStr}}"
       bindtap="onTapDay">
-      <view class="calendar__day-circle {{item.isToday ? 'calendar__day-circle--today' : ''}} {{item.isSelected && !item.isToday ? 'calendar__day-circle--selected' : ''}} {{!item.isCurrentMonth ? 'calendar__day-circle--out' : ''}} tnum">{{item.day}}</view>
+      <view class="calendar__day-circle {{item.isToday ? 'calendar__day-circle--today' : ''}} {{item.isSelected && !item.isToday ? 'calendar__day-circle--selected' : ''}} {{!item.isCurrentMonth ? 'calendar__day-circle--out' : ''}} {{!item.isToday && item.isWeekendForDisplay ? 'calendar__day-circle--weekend' : ''}} tnum">{{item.day}}</view>
+      <view wx:if="{{item.isCurrentMonth && item.dayKind === 'holiday'}}" class="calendar__badge calendar__badge--holiday">休</view>
+      <view wx:if="{{item.isCurrentMonth && item.dayKind === 'makeup-work'}}" class="calendar__badge calendar__badge--work">班</view>
       <view class="calendar__day-emoji">{{item.emoji}}</view>
     </view>
   </view>

@@ -27,13 +27,13 @@ Page({
     this.refresh();
   },
 
-  onPullDownRefresh() {
-    this.refresh();
+  async onPullDownRefresh() {
+    await this.refresh();
     wx.stopPullDownRefresh();
   },
 
-  refresh() {
-    const all = getEvents();
+  async refresh() {
+    const all = await getEvents();
     const today = todayStr();
     const [, sunday] = weekRange(today);
     const future90 = addDays(today, 90);

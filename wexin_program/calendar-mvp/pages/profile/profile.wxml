@@ -15,7 +15,8 @@
   <view class="profile__invite">
     <view class="profile__invite-label text-tertiary">邀请码</view>
     <view class="profile__invite-code tnum">{{inviteCode}}</view>
-    <view class="profile__invite-hint text-tertiary">对方输入此码即可加入小屋（暂未启用）</view>
+    <view class="profile__invite-hint text-tertiary">对方输入此码即可加入小屋</view>
+    <view class="profile__invite-copy" bindtap="onCopyInviteCode" hover-class="profile__invite-copy--hover">复制邀请码</view>
   </view>
 
   <view class="profile__list">

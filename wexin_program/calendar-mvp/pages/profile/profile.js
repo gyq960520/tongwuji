@@ -1,4 +1,4 @@
-const { getSettings, updateSettings, getEvents, clearAll } = require('../../utils/store.js');
+const { getSettings, updateSettings, getEvents, clearAll, getInviteCode } = require('../../utils/store.js');
 const { todayStr, diffDays, parseYMD } = require('../../utils/date.js');
 
 // 1086 -> "1 086"（千位用 thin space 分隔）
@@ -17,14 +17,15 @@ Page({
 
   onShow() {
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 2 });
+      this.getTabBar().setData({ selected: 3 })  // 加了持仓 tab 后，"我们" 从 2 变 3;
     }
     this.refresh();
   },
 
-  refresh() {
-    const s = getSettings();
-    const events = getEvents();
+  async refresh() {
+    const s = await getSettings();
+    const events = await getEvents();
+    const code = await getInviteCode();
 
     let daysLabel = '';
     let anniversaryLabel = '';
@@ -39,14 +40,25 @@ Page({
       daysLabel,
       anniversaryDate: s.anniversaryDate || '',
       anniversaryLabel,
-      inviteCode: s.inviteCode || '',
+      inviteCode: code || '',
       eventCount: events.length
     });
   },
 
-  onPickAnniversary(e) {
-    updateSettings({ anniversaryDate: e.detail.value });
-    this.refresh();
+  onCopyInviteCode() {
+    const code = this.data.inviteCode;
+    if (!code) return;
+    wx.setClipboardData({
+      data: code,
+      success: () => {
+        wx.showToast({ title: '邀请码已复制', icon: 'none' });
+      }
+    });
+  },
+
+  async onPickAnniversary(e) {
+    await updateSettings({ anniversaryDate: e.detail.value });
+    await this.refresh();
   },
 
   onClear() {
@@ -54,10 +66,10 @@ Page({
       title: '清空所有数据？',
       content: '所有事件和设置都会被删除，且不可恢复',
       confirmColor: '#D9483B',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          clearAll();
-          this.refresh();
+          await clearAll();
+          await this.refresh();
           wx.showToast({ title: '已清空', icon: 'none' });
         }
       }

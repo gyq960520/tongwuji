@@ -27,9 +27,9 @@ Page({
     isEdit: false
   },
 
-  onLoad(options) {
+  async onLoad(options) {
     if (options && options.id) {
-      const ev = getEventById(options.id);
+      const ev = await getEventById(options.id);
       if (ev) {
         this.setData({
           id: ev.id,
@@ -64,7 +64,7 @@ Page({
   onClearTime() { this.setData({ time: '' }); },
   onNoteInput(e) { this.setData({ note: e.detail.value }); },
 
-  onSave() {
+  async onSave() {
     const { title, type, date, time, note, id, isEdit } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
@@ -75,8 +75,8 @@ Page({
       return;
     }
     const payload = { title: title.trim(), type, date, time, note };
-    if (isEdit) updateEvent(id, payload);
-    else addEvent(payload);
+    if (isEdit) await updateEvent(id, payload);
+    else await addEvent(payload);
     wx.navigateBack();
   },
 
@@ -85,9 +85,9 @@ Page({
       title: '删除这个事件？',
       content: '删除后不可恢复',
       confirmColor: '#D9483B',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          deleteEvent(this.data.id);
+          await deleteEvent(this.data.id);
           wx.navigateBack();
         }
       }

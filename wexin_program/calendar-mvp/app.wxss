@@ -1,6 +1,8 @@
 page {
   /* color */
   --bg: #FFFFFF;
+  --off-day-red: #C44545;    /* 砖红：周末数字 + 休角标 */
+  --badge-work: #6E6E73;     /* 中性灰：班角标，比红更克制 */
   --text-primary: #1D1D1F;
   --text-secondary: #6E6E73;
   --text-tertiary: #9A9AA1;

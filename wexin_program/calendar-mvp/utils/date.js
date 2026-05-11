@@ -1,3 +1,5 @@
+const { isHoliday, isWorkday } = require('./holidays');
+
 const WEEKDAY_FULL = ['日', '一', '二', '三', '四', '五', '六'];
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -94,6 +96,45 @@ function monthGrid(year, month) {
   return grid;
 }
 
+/**
+ * 是否为周末（周六或周日）
+ */
+function isWeekend(dateStr) {
+  const d = parseYMD(dateStr);
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+/**
+ * 是否为"休息日"（周末 + 法定节假日，扣除调休上班日）
+ * 保留供其他地方使用；calendar 页改用 getDayKind 做更细的区分
+ */
+function isOffDay(dateStr) {
+  // 法定节假日：一定是休息日
+  if (isHoliday(dateStr)) return true;
+  // 调休上班日：即使是周末也不算休息日
+  if (isWorkday(dateStr)) return false;
+  // 普通周末：休息日
+  return isWeekend(dateStr);
+}
+
+/**
+ * 判断某天的"种类"
+ * 返回值：
+ *   'workday'     — 普通工作日
+ *   'weekend'     — 普通周末
+ *   'holiday'     — 法定节假日（含恰逢周末的情况）
+ *   'makeup-work' — 调休工作日（本是周末但要上班）
+ *
+ * 优先级：holiday > makeup-work > weekend > workday
+ */
+function getDayKind(dateStr) {
+  if (isHoliday(dateStr)) return 'holiday';
+  if (isWorkday(dateStr)) return 'makeup-work';
+  if (isWeekend(dateStr)) return 'weekend';
+  return 'workday';
+}
+
 module.exports = {
   formatYMD,
   formatChineseDate,
@@ -105,5 +146,8 @@ module.exports = {
   timeAsc,
   groupByDate,
   monthGrid,
-  parseYMD
+  parseYMD,
+  isWeekend,
+  isOffDay,
+  getDayKind
 };

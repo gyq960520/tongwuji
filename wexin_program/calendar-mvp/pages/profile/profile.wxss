@@ -30,6 +30,16 @@
   font-size: var(--fs-xs);
   margin-top: 12rpx;
 }
+.profile__invite-copy {
+  display: inline-block;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  margin-top: 24rpx;
+  padding: 8rpx 0;
+}
+.profile__invite-copy--hover {
+  opacity: 0.6;
+}
 
 .profile__list {
   margin-top: 72rpx;
@@ -57,4 +67,7 @@
 .profile__row-rule {
   height: 1rpx;
   background: var(--divider-soft);
+}
+.profile__row-arrow {
+  font-size: var(--fs-base);
 }
