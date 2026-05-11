@@ -1,0 +1,295 @@
+<view class="page">
+  <view class="snapshot__top">盘仓 · 周期性回顾我们的仓位</view>
+
+  <!-- 场景 A：没有 open 快照 -->
+  <view wx:if="{{!loading && !snapshot}}">
+    <view class="snapshot__title">还没有进行中的盘仓</view>
+    <view class="snapshot__rule"></view>
+    <view class="snapshot__hint">创建本期盘仓后，可上传截图记录持仓、写下复盘</view>
+    <view class="snapshot__primary-btn" bindtap="onCreateSnapshot" hover-class="snapshot__btn--hover">新建本期盘仓</view>
+  </view>
+
+  <!-- 场景 B：有快照（open 或 历史） -->
+  <view wx:if="{{!loading && snapshot}}">
+    <!-- 期数头：点击打开期数选择面板 -->
+    <view class="period-header" bindtap="onOpenPicker" hover-class="period-header--hover">
+      <view class="period-header__left">
+        <text class="period-header__title">第 {{selectedSnapshot.seq || '?'}} 期</text>
+        <text class="period-header__sub">创建于 {{createdLabel}} · {{pairStatusLabel}}</text>
+      </view>
+      <text class="period-header__arrow">▾</text>
+    </view>
+
+    <view class="snapshot__title">{{isReadonly ? '历史盘仓' : '本期盘仓'}}</view>
+    <view class="snapshot__rule"></view>
+    <view class="snapshot__meta-row">
+      <text class="snapshot__meta">{{isReadonly ? '只读 · 历史快照' : '创建于 ' + createdLabel}}</text>
+      <view class="snapshot__config-link" bindtap="onGoConfig" hover-class="snapshot__config-link--hover">目标 & 账户设置 ›</view>
+    </view>
+
+    <!-- 复盘（带 Tab） -->
+    <view class="snapshot__section">
+      <view class="snapshot__tabs-row">
+        <view class="snapshot__tab {{activeReflectionTab === 'mine' ? 'snapshot__tab--active' : ''}}" data-tab="mine" bindtap="onSwitchReflectionTab">我的复盘</view>
+        <view class="snapshot__tab {{activeReflectionTab === 'other' ? 'snapshot__tab--active' : ''}}" data-tab="other" bindtap="onSwitchReflectionTab">TA 的复盘</view>
+      </view>
+
+      <view wx:if="{{activeReflectionTab === 'mine' && !isReadonly}}" class="snapshot__reflection snapshot__reflection--editable" bindtap="onEditReflection" hover-class="snapshot__reflection--hover">
+        <view wx:if="{{myReflection && myReflection.content}}" class="snapshot__reflection-content">{{myReflection.content}}</view>
+        <view wx:else class="snapshot__reflection-empty">未填写，点击撰写</view>
+        <text class="snapshot__reflection-pencil">编辑</text>
+      </view>
+
+      <view wx:if="{{activeReflectionTab === 'mine' && isReadonly}}" class="snapshot__reflection snapshot__reflection--readonly">
+        <view wx:if="{{myReflection && myReflection.content}}" class="snapshot__reflection-content">{{myReflection.content}}</view>
+        <view wx:else class="snapshot__reflection-empty">这期没写复盘</view>
+      </view>
+
+      <view wx:if="{{activeReflectionTab === 'other'}}" class="snapshot__reflection snapshot__reflection--readonly">
+        <view wx:if="{{otherReflection && otherReflection.content}}" class="snapshot__reflection-content">{{otherReflection.content}}</view>
+        <view wx:else class="snapshot__reflection-empty">TA 还没写复盘</view>
+      </view>
+    </view>
+
+    <!-- 持仓（带 Tab） -->
+    <view class="snapshot__section">
+      <view class="snapshot__tabs-row">
+        <view class="snapshot__tab {{activeTab === 'mine' ? 'snapshot__tab--active' : ''}}" data-tab="mine" bindtap="onSwitchTab">我的持仓</view>
+        <view class="snapshot__tab {{activeTab === 'other' ? 'snapshot__tab--active' : ''}}" data-tab="other" bindtap="onSwitchTab">TA 的持仓</view>
+      </view>
+      <view wx:for="{{rateNotes}}" wx:for-item="rn" wx:key="*this" class="snapshot__rate-note">{{rn}}</view>
+
+      <!-- 我的 -->
+      <block wx:if="{{activeTab === 'mine'}}">
+        <view wx:if="{{myPieSegments.length > 0}}" class="snapshot__chart">
+          <view class="snapshot__pie-wrap">
+            <view class="snapshot__pie" style="background: {{myPieGradient}};"></view>
+            <view class="snapshot__pie-hole">
+              <text class="snapshot__pie-total tnum">{{myTotalChart}}</text>
+            </view>
+          </view>
+          <view class="snapshot__legend">
+            <view class="snapshot__legend-header">
+              <text class="snapshot__legend-label-h"></text>
+              <text class="snapshot__legend-target-h">目标</text>
+              <text class="snapshot__legend-actual-h">现状</text>
+              <text class="snapshot__legend-amount-h">金额</text>
+            </view>
+            <block wx:for="{{myPieSegments}}" wx:key="key">
+              <view class="snapshot__legend-item">
+                <view class="snapshot__legend-dot" style="background: {{item.color}};"></view>
+                <text class="snapshot__legend-label">{{item.label}}</text>
+                <text class="snapshot__legend-target tnum">{{item.targetInt}}</text>
+                <text class="snapshot__legend-percent tnum">{{item.percentInt}}</text>
+                <text class="snapshot__legend-amount tnum">{{item.amountChart}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
+
+        <!-- 币种敞口（CNY 等值口径计算占比） -->
+        <view wx:if="{{myCurrencySegments.length > 0}}" class="snapshot__cur-section">
+          <view class="snapshot__cur-title">币种敞口</view>
+          <view class="snapshot__cur-bar" style="background: {{myCurrencyGradient}};"></view>
+          <view class="snapshot__cur-legend">
+            <block wx:for="{{myCurrencySegments}}" wx:key="code">
+              <view class="snapshot__cur-row">
+                <view class="snapshot__cur-dot" style="background: {{item.color}};"></view>
+                <text class="snapshot__cur-code">{{item.code}}</text>
+                <text class="snapshot__cur-label">{{item.label}}</text>
+                <text class="snapshot__cur-percent tnum">{{item.percentInt}}</text>
+                <text class="snapshot__cur-amount tnum">{{showOriginalCurrency ? (item.symbol + item.originalDetail) : ('¥' + item.cnyDetail)}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
+
+        <!-- 全局录入入口 -->
+        <view wx:if="{{!isReadonly}}" class="snapshot__add-link" bindtap="onAddPositions" hover-class="snapshot__add-link--hover">+ 录入/补充任一账户持仓</view>
+
+        <!-- 持仓明细标题 + 切换原币种按钮 -->
+        <view class="snapshot__detail-header">
+          <text class="snapshot__detail-title">持仓明细</text>
+          <view class="snapshot__detail-toggle" bindtap="onToggleCurrencyView" hover-class="snapshot__detail-toggle--hover">
+            {{showOriginalCurrency ? '看 RMB' : '切换原币种'}}
+          </view>
+        </view>
+
+        <!-- 与下方账户明细之间的深色分隔线 -->
+        <view class="snapshot__section-rule"></view>
+
+        <view wx:if="{{myAccountsWithPositions.length === 0}}" class="snapshot__empty">
+          还没有录入持仓
+        </view>
+
+        <block wx:for="{{myAccountsWithPositions}}" wx:for-item="acc" wx:key="accountId">
+          <view wx:if="{{index > 0}}" class="snapshot__account-sep"></view>
+          <view class="snapshot__account">
+            <view class="snapshot__account-head" data-account-id="{{acc.accountId}}" bindtap="onToggleAccount" hover-class="snapshot__account-head--hover">
+              <text class="snapshot__chev {{expandedAccounts[acc.accountId] ? '' : 'snapshot__chev--collapsed'}}">▼</text>
+              <text class="snapshot__account-name">{{acc.account.name}}</text>
+              <text class="snapshot__account-sum tnum">¥{{acc.sumAmountCnyDetail}}</text>
+            </view>
+
+            <block wx:if="{{expandedAccounts[acc.accountId]}}">
+              <view class="snapshot__col-header">
+                <text class="snapshot__col-name-h"></text>
+                <text wx:if="{{showOriginalCurrency}}" class="snapshot__col-cur-h">币种</text>
+                <text class="snapshot__col-pct-h">RMB%</text>
+                <text class="snapshot__col-rmb-h">{{showOriginalCurrency ? '原币价值' : 'RMB 金额'}}</text>
+              </view>
+
+              <block wx:for="{{acc.categoryGroups}}" wx:for-item="cg" wx:key="categoryKey">
+                <view class="snapshot__cat-header">
+                  <view class="snapshot__cat-name-wrap">
+                    <view class="snapshot__cat-dot" style="background: {{cg.color}};"></view>
+                    <text class="snapshot__cat-name">{{cg.label}}</text>
+                  </view>
+                  <text class="snapshot__cat-pct tnum">{{cg.percentInt}}</text>
+                  <text class="snapshot__cat-sum tnum">¥{{cg.sumCnyDetail}}</text>
+                </view>
+                <block wx:for="{{cg.positions}}" wx:for-item="p" wx:key="_id">
+                  <view class="snapshot__pos">
+                    <text class="snapshot__pos-name">{{p.name}}</text>
+                    <text wx:if="{{showOriginalCurrency}}" class="snapshot__pos-cur">{{p.currency}}</text>
+                    <text class="snapshot__pos-pct tnum">{{p.percentInt}}</text>
+                    <text class="snapshot__pos-rmb tnum">{{showOriginalCurrency ? p.amountDetail : p.amountCnyDetail}}</text>
+                  </view>
+                </block>
+              </block>
+            </block>
+
+            <!-- 操作按钮行：手动编辑金额 + 重新上传截图，账户底部右对齐 -->
+            <view wx:if="{{!isReadonly}}" class="snapshot__account-actions">
+              <view class="snapshot__edit-btn" data-account-id="{{acc.accountId}}" catchtap="onEditAccount" hover-class="snapshot__edit-btn--hover">手动编辑金额</view>
+              <view class="snapshot__edit-btn" data-account-id="{{acc.accountId}}" catchtap="onReuploadAccount" hover-class="snapshot__edit-btn--hover">重新上传截图</view>
+            </view>
+          </view>
+        </block>
+      </block>
+
+      <!-- TA 的 -->
+      <block wx:if="{{activeTab === 'other'}}">
+        <view wx:if="{{otherPieSegments.length > 0}}" class="snapshot__chart">
+          <view class="snapshot__pie-wrap">
+            <view class="snapshot__pie" style="background: {{otherPieGradient}};"></view>
+            <view class="snapshot__pie-hole">
+              <text class="snapshot__pie-total tnum">{{otherTotalChart}}</text>
+            </view>
+          </view>
+          <view class="snapshot__legend">
+            <block wx:for="{{otherPieSegments}}" wx:key="key">
+              <view class="snapshot__legend-item">
+                <view class="snapshot__legend-dot" style="background: {{item.color}};"></view>
+                <text class="snapshot__legend-label">{{item.label}}</text>
+                <text class="snapshot__legend-percent tnum">{{item.percentInt}}</text>
+                <text class="snapshot__legend-amount tnum">{{item.amountChart}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
+
+        <!-- 币种敞口 -->
+        <view wx:if="{{otherCurrencySegments.length > 0}}" class="snapshot__cur-section">
+          <view class="snapshot__cur-title">币种敞口</view>
+          <view class="snapshot__cur-bar" style="background: {{otherCurrencyGradient}};"></view>
+          <view class="snapshot__cur-legend">
+            <block wx:for="{{otherCurrencySegments}}" wx:key="code">
+              <view class="snapshot__cur-row">
+                <view class="snapshot__cur-dot" style="background: {{item.color}};"></view>
+                <text class="snapshot__cur-code">{{item.code}}</text>
+                <text class="snapshot__cur-label">{{item.label}}</text>
+                <text class="snapshot__cur-percent tnum">{{item.percentInt}}</text>
+                <text class="snapshot__cur-amount tnum">{{showOriginalCurrency ? (item.symbol + item.originalDetail) : ('¥' + item.cnyDetail)}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
+
+        <!-- 持仓明细标题 + 切换原币种按钮（仅在有持仓时才显示标题） -->
+        <view wx:if="{{otherAccountsWithPositions.length > 0}}" class="snapshot__detail-header">
+          <text class="snapshot__detail-title">持仓明细</text>
+          <view class="snapshot__detail-toggle" bindtap="onToggleCurrencyView" hover-class="snapshot__detail-toggle--hover">
+            {{showOriginalCurrency ? '看 RMB' : '切换原币种'}}
+          </view>
+        </view>
+
+        <!-- 深色分隔线 -->
+        <view wx:if="{{otherAccountsWithPositions.length > 0}}" class="snapshot__section-rule"></view>
+
+        <view wx:if="{{otherAccountsWithPositions.length === 0}}" class="snapshot__empty">
+          TA 还没有录入持仓
+        </view>
+
+        <block wx:for="{{otherAccountsWithPositions}}" wx:for-item="acc" wx:key="accountId">
+          <view wx:if="{{index > 0}}" class="snapshot__account-sep"></view>
+          <view class="snapshot__account snapshot__account--readonly">
+            <view class="snapshot__account-head" data-account-id="{{acc.accountId}}" bindtap="onToggleAccount" hover-class="snapshot__account-head--hover">
+              <text class="snapshot__chev {{expandedAccounts[acc.accountId] ? '' : 'snapshot__chev--collapsed'}}">▼</text>
+              <text class="snapshot__account-name">{{acc.account.name}}</text>
+              <text class="snapshot__account-sum tnum">¥{{acc.sumAmountCnyDetail}}</text>
+            </view>
+
+            <block wx:if="{{expandedAccounts[acc.accountId]}}">
+              <view class="snapshot__col-header">
+                <text class="snapshot__col-name-h"></text>
+                <text wx:if="{{showOriginalCurrency}}" class="snapshot__col-cur-h">币种</text>
+                <text class="snapshot__col-pct-h">RMB%</text>
+                <text class="snapshot__col-rmb-h">{{showOriginalCurrency ? '原币价值' : 'RMB 金额'}}</text>
+              </view>
+
+              <block wx:for="{{acc.categoryGroups}}" wx:for-item="cg" wx:key="categoryKey">
+                <view class="snapshot__cat-header">
+                  <view class="snapshot__cat-name-wrap">
+                    <view class="snapshot__cat-dot" style="background: {{cg.color}};"></view>
+                    <text class="snapshot__cat-name">{{cg.label}}</text>
+                  </view>
+                  <text class="snapshot__cat-pct tnum">{{cg.percentInt}}</text>
+                  <text class="snapshot__cat-sum tnum">¥{{cg.sumCnyDetail}}</text>
+                </view>
+                <block wx:for="{{cg.positions}}" wx:for-item="p" wx:key="_id">
+                  <view class="snapshot__pos">
+                    <text class="snapshot__pos-name">{{p.name}}</text>
+                    <text wx:if="{{showOriginalCurrency}}" class="snapshot__pos-cur">{{p.currency}}</text>
+                    <text class="snapshot__pos-pct tnum">{{p.percentInt}}</text>
+                    <text class="snapshot__pos-rmb tnum">{{showOriginalCurrency ? p.amountDetail : p.amountCnyDetail}}</text>
+                  </view>
+                </block>
+              </block>
+            </block>
+          </view>
+        </block>
+      </block>
+    </view>
+
+    <view wx:if="{{!isReadonly}}" class="snapshot__close-btn" bindtap="onCloseSnapshot">结束本期盘仓</view>
+    <view wx:if="{{isReadonly && !hasOpenSnapshot}}" class="snapshot__primary-btn" bindtap="onCreateSnapshot" hover-class="snapshot__btn--hover">新建下一期盘仓</view>
+  </view>
+
+  <!-- 期数选择底部弹窗 -->
+  <view wx:if="{{showPicker}}" class="picker-mask" bindtap="onClosePicker" catchtouchmove="">
+    <view class="picker-panel" catchtap="">
+      <view class="picker-grip"></view>
+      <view class="picker-title">选择期数</view>
+      <view class="picker-subtitle">共 {{panelItems.length}} 期 · 历史快照只读</view>
+      <scroll-view scroll-y="true" class="picker-list">
+        <block wx:for="{{panelItems}}" wx:key="snapshotId">
+          <view class="picker-item {{item.isActive ? 'picker-item--active' : ''}}"
+                data-index="{{index}}"
+                bindtap="onSelectPanelItem"
+                hover-class="picker-item--hover">
+            <view class="picker-item__main">
+              <view class="picker-item__title-row">
+                <text class="picker-item__title">{{item.mainLabel}}</text>
+                <text wx:if="{{item.isOpen}}" class="picker-item__open-tag">进行中</text>
+              </view>
+              <text class="picker-item__sub">{{item.subLabel}}</text>
+            </view>
+            <text wx:if="{{item.isActive}}" class="picker-item__check">✓</text>
+            <text wx:else class="picker-item__arrow">›</text>
+          </view>
+        </block>
+      </scroll-view>
+    </view>
+  </view>
+</view>
