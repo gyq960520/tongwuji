@@ -1,0 +1,75 @@
+<view class="page mgr">
+  <view class="mgr__top text-tertiary">最多 {{3}} 个自定义分类，房间内双方共享。删除分类后该分类下的事件会归入"提醒"。</view>
+
+  <view wx:if="{{categories.length === 0}}" class="mgr__empty">还没有自定义分类</view>
+
+  <block wx:for="{{categories}}" wx:key="_id">
+    <view class="mgr__item">
+      <text class="mgr__emoji">{{item.emoji}}</text>
+      <text class="mgr__name">{{item.name}}</text>
+      <view class="mgr__actions">
+        <view class="mgr__btn" data-id="{{item._id}}" bindtap="onEditCategory" hover-class="mgr__btn--hover">编辑</view>
+        <view class="mgr__btn mgr__btn--danger" data-id="{{item._id}}" bindtap="onDeleteCategory" hover-class="mgr__btn--hover">删除</view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{canAddCustom}}" class="mgr__add" bindtap="onAddCustom" hover-class="mgr__add--hover">+ 新建自定义分类</view>
+  <view wx:else class="mgr__limit text-tertiary">已达 3 个上限，需先删除一个才能再建</view>
+</view>
+
+<!-- 新建 / 编辑自定义分类 sheet（与 event-edit 共享样式，但 wxss 是 scoped 所以各自维护一份） -->
+<view wx:if="{{showSheet}}" class="cat-sheet__mask" bindtap="onCloseSheet" catchtouchmove="onSheetCatchTouchMove">
+  <view class="cat-sheet" catchtap="onSheetCatchTap">
+    <view class="cat-sheet__grip"></view>
+    <view class="cat-sheet__title">{{editingId ? '编辑自定义分类' : '新建自定义分类'}}</view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">名字</text>
+      <input
+        class="cat-sheet__input"
+        placeholder="2-6 个字"
+        placeholder-class="cat-sheet__placeholder"
+        maxlength="-1"
+        value="{{newCategoryName}}"
+        bindinput="onSheetNameInput" />
+    </view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">Emoji</text>
+      <text class="cat-sheet__preview">{{newCategoryEmoji || '—'}}</text>
+    </view>
+
+    <scroll-view scroll-y="true" class="cat-sheet__emoji-scroll">
+      <block wx:for="{{presetEmojiGroups}}" wx:for-item="group" wx:key="label">
+        <view class="cat-sheet__group">
+          <text class="cat-sheet__group-label text-tertiary">{{group.label}}</text>
+          <view class="cat-sheet__emoji-row">
+            <view
+              wx:for="{{group.emojis}}"
+              wx:for-item="em"
+              wx:key="*this"
+              class="cat-sheet__emoji-chip {{newCategoryEmoji === em ? 'cat-sheet__emoji-chip--active' : ''}}"
+              data-emoji="{{em}}"
+              bindtap="onSelectPresetEmoji">{{em}}</view>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">或输入</text>
+      <input
+        class="cat-sheet__input"
+        placeholder="自由输入其他 emoji"
+        placeholder-class="cat-sheet__placeholder"
+        value="{{newCategoryEmoji}}"
+        bindinput="onSheetEmojiInput" />
+    </view>
+
+    <view class="cat-sheet__actions">
+      <view class="cat-sheet__cancel" bindtap="onCloseSheet">取消</view>
+      <view class="cat-sheet__confirm {{canConfirmSheet ? '' : 'cat-sheet__confirm--disabled'}}" bindtap="onConfirmSheet">确定</view>
+    </view>
+  </view>
+</view>

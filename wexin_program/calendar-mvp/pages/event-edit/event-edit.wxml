@@ -21,6 +21,20 @@
         <text class="edit__type-emoji">{{item.emoji}}</text>
         <text class="edit__type-label">{{item.label}}</text>
       </view>
+      <view
+        wx:for="{{customCategories}}"
+        wx:for-item="cat"
+        wx:key="_id"
+        class="edit__type {{type === cat._id ? 'edit__type--active' : ''}}"
+        data-key="{{cat._id}}"
+        bindtap="onSelectType">
+        <text class="edit__type-emoji">{{cat.emoji}}</text>
+        <text class="edit__type-label">{{cat.name}}</text>
+      </view>
+      <view wx:if="{{canAddCustom}}" class="edit__type edit__type--add" bindtap="onAddCustom">
+        <text class="edit__type-emoji edit__type-emoji--plus">+</text>
+        <text class="edit__type-label">自定义</text>
+      </view>
     </view>
   </view>
 
@@ -54,5 +68,61 @@
   <view class="edit__actions {{isEdit ? 'edit__actions--two' : ''}}">
     <view wx:if="{{isEdit}}" class="edit__delete" bindtap="onDelete">删除</view>
     <view class="edit__save" bindtap="onSave">保存</view>
+  </view>
+</view>
+
+<!-- 新建自定义分类 sheet -->
+<view wx:if="{{showSheet}}" class="cat-sheet__mask" bindtap="onCloseSheet" catchtouchmove="onSheetCatchTouchMove">
+  <view class="cat-sheet" catchtap="onSheetCatchTap">
+    <view class="cat-sheet__grip"></view>
+    <view class="cat-sheet__title">新建自定义分类</view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">名字</text>
+      <input
+        class="cat-sheet__input"
+        placeholder="2-6 个字"
+        placeholder-class="cat-sheet__placeholder"
+        maxlength="-1"
+        value="{{newCategoryName}}"
+        bindinput="onSheetNameInput" />
+    </view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">Emoji</text>
+      <text class="cat-sheet__preview">{{newCategoryEmoji || '—'}}</text>
+    </view>
+
+    <scroll-view scroll-y="true" class="cat-sheet__emoji-scroll">
+      <block wx:for="{{presetEmojiGroups}}" wx:for-item="group" wx:key="label">
+        <view class="cat-sheet__group">
+          <text class="cat-sheet__group-label text-tertiary">{{group.label}}</text>
+          <view class="cat-sheet__emoji-row">
+            <view
+              wx:for="{{group.emojis}}"
+              wx:for-item="em"
+              wx:key="*this"
+              class="cat-sheet__emoji-chip {{newCategoryEmoji === em ? 'cat-sheet__emoji-chip--active' : ''}}"
+              data-emoji="{{em}}"
+              bindtap="onSelectPresetEmoji">{{em}}</view>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+
+    <view class="cat-sheet__field">
+      <text class="cat-sheet__label text-secondary">或输入</text>
+      <input
+        class="cat-sheet__input"
+        placeholder="自由输入其他 emoji"
+        placeholder-class="cat-sheet__placeholder"
+        value="{{newCategoryEmoji}}"
+        bindinput="onSheetEmojiInput" />
+    </view>
+
+    <view class="cat-sheet__actions">
+      <view class="cat-sheet__cancel" bindtap="onCloseSheet">取消</view>
+      <view class="cat-sheet__confirm {{canConfirmSheet ? '' : 'cat-sheet__confirm--disabled'}}" bindtap="onConfirmSheet">确定</view>
+    </view>
   </view>
 </view>

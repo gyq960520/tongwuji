@@ -9,7 +9,7 @@
     <view wx:else>
       <block wx:for="{{todayEvents}}" wx:key="id">
         <view wx:if="{{index > 0}}" class="event-divider"></view>
-        <event-item event="{{item}}" bind:select="onTapEvent" />
+        <event-item event="{{item}}" customCategories="{{customCategories}}" bind:select="onTapEvent" />
       </block>
     </view>
   </view>
@@ -25,7 +25,7 @@
         <view class="timeline__group-label tnum">{{group.label}}</view>
         <block wx:for="{{group.events}}" wx:for-item="ev" wx:for-index="ei" wx:key="id">
           <view wx:if="{{ei > 0}}" class="event-divider"></view>
-          <event-item event="{{ev}}" bind:select="onTapEvent" />
+          <event-item event="{{ev}}" customCategories="{{customCategories}}" bind:select="onTapEvent" />
         </block>
       </block>
     </view>
@@ -42,7 +42,7 @@
         <view class="timeline__group-label tnum">{{group.label}}</view>
         <block wx:for="{{group.events}}" wx:for-item="ev" wx:for-index="ei" wx:key="id">
           <view wx:if="{{ei > 0}}" class="event-divider"></view>
-          <event-item event="{{ev}}" bind:select="onTapEvent" />
+          <event-item event="{{ev}}" customCategories="{{customCategories}}" bind:select="onTapEvent" />
         </block>
       </block>
     </view>

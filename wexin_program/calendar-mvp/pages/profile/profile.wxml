@@ -25,6 +25,11 @@
       <text class="profile__row-value tnum text-secondary">{{eventCount}}</text>
     </view>
     <view class="profile__row-rule"></view>
+    <view class="profile__row" bindtap="onManageCategories" hover-class="profile__row--hover">
+      <text class="profile__row-label">管理自定义分类</text>
+      <text class="profile__row-value text-tertiary">›</text>
+    </view>
+    <view class="profile__row-rule"></view>
     <view class="profile__row" bindtap="onClear" hover-class="profile__row--hover">
       <text class="profile__row-danger">清空所有数据</text>
     </view>

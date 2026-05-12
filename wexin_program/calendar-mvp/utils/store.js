@@ -8,6 +8,7 @@
 // 内存缓存
 let _eventsCache = null
 let _settingsCache = null
+let _categoriesCache = null
 let _openid = null
 let _roomId = null
 let _inviteCode = null
@@ -105,7 +106,80 @@ async function leaveRoom() {
   _inviteCode = null
   _eventsCache = null
   _settingsCache = null
+  _categoriesCache = null
   wx.removeStorageSync('roomId')
+}
+
+// ---------- 自定义分类 ----------
+
+async function getCategories() {
+  if (_categoriesCache) return _categoriesCache
+  const roomId = await getCurrentRoomId()
+  if (!roomId) return []
+  const db = wx.cloud.database()
+  const res = await db.collection('categories').where({ roomId }).orderBy('createdAt', 'asc').get()
+  _categoriesCache = res.data
+  return _categoriesCache
+}
+
+function invalidateCategoriesCache() { _categoriesCache = null }
+
+async function createCategory({ name, emoji }) {
+  const roomId = await getCurrentRoomId()
+  if (!roomId) throw new Error('未加入小屋')
+  const res = await wx.cloud.callFunction({
+    name: 'manageCategory',
+    data: { action: 'create', roomId, name, emoji }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '创建失败')
+  }
+  _categoriesCache = null
+  return res.result.category
+}
+
+async function updateCategory({ id, name, emoji }) {
+  const res = await wx.cloud.callFunction({
+    name: 'manageCategory',
+    data: { action: 'update', id, name, emoji }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '更新失败')
+  }
+  _categoriesCache = null
+  return { success: true }
+}
+
+// 删除前会弹 modal 提示有多少事件会被改成"提醒"。用户确认后才真删。
+// 返回 { success, affectedEvents } 或 { cancelled: true }
+async function deleteCategory(id) {
+  const events = await getEvents()
+  const affected = events.filter(e => e.type === id).length
+
+  const confirmed = await new Promise(resolve => {
+    wx.showModal({
+      title: '删除自定义分类',
+      content: affected > 0
+        ? `此分类下还有 ${affected} 个事件，删除后会变成"提醒"分类，确认？`
+        : '确认删除？',
+      confirmColor: '#D9483B',
+      success: (res) => resolve(res.confirm),
+      fail: () => resolve(false)
+    })
+  })
+  if (!confirmed) return { cancelled: true }
+
+  const res = await wx.cloud.callFunction({
+    name: 'manageCategory',
+    data: { action: 'delete', id }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '删除失败')
+  }
+  // 删除会把一批 events 的 type 改成 normal，事件缓存也要失效
+  _categoriesCache = null
+  _eventsCache = null
+  return { success: true, affectedEvents: res.result.affectedEvents }
 }
 
 // ---------- 事件 ----------
@@ -241,5 +315,11 @@ module.exports = {
   // 设置
   getSettings,
   updateSettings,
-  clearAll
+  clearAll,
+  // 自定义分类
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  invalidateCategoriesCache
 }

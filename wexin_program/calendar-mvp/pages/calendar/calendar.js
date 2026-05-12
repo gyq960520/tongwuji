@@ -1,6 +1,6 @@
-const { getEvents, getEventsByDate } = require('../../utils/store.js');
+const { getEvents, getEventsByDate, getCategories } = require('../../utils/store.js');
 const { todayStr, monthGrid, timeAsc, formatChineseShort, getDayKind, isWeekend } = require('../../utils/date.js');
-const { TYPES } = require('../../utils/types.js');
+const { resolveEventType } = require('../../utils/config.js');
 
 Page({
   data: {
@@ -11,7 +11,8 @@ Page({
     grid: [],
     selectedDate: '',
     selectedDateLabel: '',
-    selectedEvents: []
+    selectedEvents: [],
+    customCategories: []
   },
 
   onLoad() {
@@ -40,7 +41,10 @@ Page({
     const { year, month, selectedDate } = this.data;
     if (!year) return;
 
-    const events = await getEvents();
+    const [events, customCategories] = await Promise.all([
+      getEvents(),
+      getCategories()
+    ]);
     // 每日首个事件（按时间排序，全天最前），用于在格子下方显示一个 emoji
     const buckets = {};
     events.forEach(e => {
@@ -55,7 +59,7 @@ Page({
 
     const grid = monthGrid(year, month).map(cell => {
       const ev = firstByDate[cell.dateStr];
-      const emoji = ev && TYPES[ev.type] ? TYPES[ev.type].emoji : '';
+      const emoji = ev ? resolveEventType(ev.type, customCategories).emoji : '';
       const dayKind = cell.isCurrentMonth ? getDayKind(cell.dateStr) : 'workday';
       // 数字显示红色的判定：本月、实际是周六/周日、且没被调休改成工作日。
       // 节假日恰逢周末（如 2026/5/2 周六劳动节）也红，节假日恰逢工作日（如 5/1 周五）保持黑。
@@ -70,6 +74,7 @@ Page({
 
     this.setData({
       grid,
+      customCategories,
       selectedDateLabel: selectedDate ? formatChineseShort(selectedDate) : '',
       selectedEvents: (await getEventsByDate(selectedDate)).sort(timeAsc)
     });

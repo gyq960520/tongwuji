@@ -1,4 +1,4 @@
-const { getEvents } = require('../../utils/store.js');
+const { getEvents, getCategories } = require('../../utils/store.js');
 const {
   formatChineseDate,
   todayStr,
@@ -13,7 +13,8 @@ Page({
     todayLabel: '',
     todayEvents: [],
     weekGroups: [],
-    futureGroups: []
+    futureGroups: [],
+    customCategories: []
   },
 
   onLoad() {
@@ -33,7 +34,7 @@ Page({
   },
 
   async refresh() {
-    const all = await getEvents();
+    const [all, customCategories] = await Promise.all([getEvents(), getCategories()]);
     const today = todayStr();
     const [, sunday] = weekRange(today);
     const future90 = addDays(today, 90);
@@ -42,7 +43,7 @@ Page({
     const weekGroups = groupByDate(all.filter(e => e.date > today && e.date <= sunday));
     const futureGroups = groupByDate(all.filter(e => e.date > sunday && e.date <= future90));
 
-    this.setData({ todayEvents, weekGroups, futureGroups });
+    this.setData({ todayEvents, weekGroups, futureGroups, customCategories });
   },
 
   onAdd() {

@@ -61,6 +61,10 @@ Page({
     await this.refresh();
   },
 
+  onManageCategories() {
+    wx.navigateTo({ url: '/pages/category-manage/category-manage' });
+  },
+
   onClear() {
     wx.showModal({
       title: '清空所有数据？',

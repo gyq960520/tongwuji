@@ -5,6 +5,7 @@
     "pages/calendar/calendar",
     "pages/profile/profile",
     "pages/event-edit/event-edit",
+    "pages/category-manage/category-manage",
     "pages/investment/accounts/accounts",
     "pages/investment/account-edit/account-edit",
     "pages/investment/snapshot/snapshot",
