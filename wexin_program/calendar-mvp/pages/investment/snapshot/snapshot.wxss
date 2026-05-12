@@ -185,6 +185,15 @@
   color: var(--text-primary);
   font-weight: var(--fw-bold);
 }
+.snapshot__pie-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 22rpx;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .snapshot__legend {
   flex: 1;
   padding-left: 36rpx;

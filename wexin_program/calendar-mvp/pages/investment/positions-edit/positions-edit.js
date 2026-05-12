@@ -19,6 +19,10 @@ Page({
   },
 
   async onLoad(query) {
+    // 兜底：上一个页面（upload）的 wx.showLoading 如果没正确 hideLoading，
+    // mask:true 会随路由跟过来盖住本页，导致所有 tap 失效（保存按钮、胶囊都点不动）
+    wx.hideLoading()
+
     this.setData({
       snapshotId: query.snapshotId || '',
       accountId: query.accountId || ''
@@ -117,6 +121,7 @@ Page({
   },
 
   onPickCategory(e) {
+    console.log('[positions-edit] onPickCategory', e.currentTarget.dataset)
     const { index, key } = e.currentTarget.dataset
     const list = [...this.data.list]
     list[index].category = key
@@ -134,97 +139,130 @@ Page({
   },
 
   async onSave() {
-    const list = this.data.list
-    if (list.length === 0) {
-      wx.showToast({ title: '至少添加一项', icon: 'none' })
-      return
-    }
+    console.log('[positions-edit] onSave 被触发，list 长度:', this.data.list.length)
+    try {
+      const list = this.data.list
+      if (list.length === 0) {
+        wx.showToast({ title: '至少添加一项', icon: 'none' })
+        return
+      }
 
-    const errors = []
-    for (let i = 0; i < list.length; i++) {
-      const p = list[i]
-      if (!p.name.trim()) {
-        errors.push(`第 ${i + 1} 行：名称必填`)
-        continue
-      }
-      if (!p.amount || isNaN(Number(p.amount))) {
-        errors.push(`第 ${i + 1} 行：金额必填且必须是数字`)
-        continue
-      }
-      // 数量 × 单价 校验：两个都有才检查
-      if (p.quantity && p.unitPrice) {
-        const q = Number(p.quantity)
-        const u = Number(p.unitPrice)
-        const a = Number(p.amount)
-        if (!isNaN(q) && !isNaN(u) && !isNaN(a)) {
-          const computed = q * u
-          const diff = Math.abs(computed - a)
-          // 容差：1% 或 1 元 取大
-          const tolerance = Math.max(Math.abs(a) * 0.01, 1.0)
-          if (diff > tolerance) {
-            errors.push(`第 ${i + 1} 行（${p.name}）：金额 ${a.toFixed(2)} ≠ 数量×单价 ${computed.toFixed(2)}，差 ${diff.toFixed(2)}`)
+      // 硬错误：会写入脏数据（空名、非数字金额）—— 必须修，不允许忽略
+      // 软错误：q×u 对不上、合计与顶部总资产不符 —— 允许"忽略并保存"
+      const hardErrors = []
+      const softErrors = []
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i]
+        if (!p.name.trim()) {
+          hardErrors.push(`第 ${i + 1} 行：名称必填`)
+          continue
+        }
+        if (!p.amount || isNaN(Number(p.amount))) {
+          hardErrors.push(`第 ${i + 1} 行：金额必填且必须是数字`)
+          continue
+        }
+        if (p.quantity && p.unitPrice) {
+          const q = Number(p.quantity)
+          const u = Number(p.unitPrice)
+          const a = Number(p.amount)
+          if (!isNaN(q) && !isNaN(u) && !isNaN(a)) {
+            const computed = q * u
+            const diff = Math.abs(computed - a)
+            const tolerance = Math.max(Math.abs(a) * 0.01, 1.0)
+            if (diff > tolerance) {
+              softErrors.push(`第 ${i + 1} 行（${p.name}）：金额 ${a.toFixed(2)} ≠ 数量×单价 ${computed.toFixed(2)}，差 ${diff.toFixed(2)}`)
+            }
           }
         }
       }
-    }
 
-    // 合计校验（如果有 expectedTotal）：按账户主货币汇总跟它对比
-    if (this.data.expectedTotal !== null) {
-      const mainCur = this.data.defaultCurrency
-      const sumMain = list.reduce((s, p) => {
-        // 只把跟账户主货币一致的累加（保守做法，跨币种校验留给上传页）
-        return (p.currency === mainCur) ? s + (Number(p.amount) || 0) : s
-      }, 0)
-      const diff = Math.abs(sumMain - this.data.expectedTotal)
-      const tol = Math.max(this.data.expectedTotal * 0.001, 10)
-      if (diff > tol) {
-        errors.push(`合计校验：${mainCur} 总额 ${sumMain.toFixed(2)} 与截图顶部总资产 ${this.data.expectedTotal.toFixed(2)} 不一致，差 ${diff.toFixed(2)}`)
-      }
-    }
-
-    if (errors.length > 0) {
-      wx.showModal({
-        title: '校验未通过，无法保存',
-        content: errors.slice(0, 5).join('\n\n') + (errors.length > 5 ? `\n\n（还有 ${errors.length - 5} 条问题）` : ''),
-        showCancel: false,
-        confirmText: '回去修改'
-      })
-      return
-    }
-
-    wx.showModal({
-      title: '保存持仓',
-      content: `将 ${list.length} 条持仓记入「${(this.data.account || {}).name || ''}」。\n仅替换本期该账户已录入的内容；历史快照保留不变。`,
-      success: async (res) => {
-        if (!res.confirm) return
-        wx.showLoading({ title: '保存中', mask: true })
-        try {
-          await investment.deletePositionsByAccount(this.data.snapshotId, this.data.accountId)
-          const payload = list.map(p => ({
-            name: p.name.trim(),
-            code: (p.code || '').trim(),
-            category: p.category,
-            currency: p.currency || this.data.defaultCurrency,
-            amount: Number(p.amount),
-            quantity: p.quantity ? Number(p.quantity) : null,
-            unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
-            note: p.note || ''
-          }))
-          await investment.addPositions(this.data.snapshotId, this.data.accountId, payload)
-          // 汇丰专属：用 持有总额 - CNY 产品 = USD 产品的 CNY 现值，倒算 USD/CNY 汇率并存到账户
-          await this._maybeBackCalcHsbcRate(payload)
-          wx.hideLoading()
-          wx.showToast({ title: '已保存', icon: 'success' })
-          setTimeout(() => {
-            // 持仓页是 tab，必须用 switchTab；redirectTo 到 tabBar 页会失败
-            wx.switchTab({ url: '/pages/investment/snapshot/snapshot' })
-          }, 600)
-        } catch (e) {
-          wx.hideLoading()
-          wx.showToast({ title: '保存失败：' + (e.message || ''), icon: 'none' })
+      if (this.data.expectedTotal !== null) {
+        const mainCur = this.data.defaultCurrency
+        const sumMain = list.reduce((s, p) => {
+          return (p.currency === mainCur) ? s + (Number(p.amount) || 0) : s
+        }, 0)
+        const diff = Math.abs(sumMain - this.data.expectedTotal)
+        const tol = Math.max(this.data.expectedTotal * 0.001, 10)
+        if (diff > tol) {
+          softErrors.push(`合计校验：${mainCur} 总额 ${sumMain.toFixed(2)} 与截图顶部总资产 ${this.data.expectedTotal.toFixed(2)} 不一致，差 ${diff.toFixed(2)}`)
         }
       }
-    })
+
+      console.log('[positions-edit] 校验完成 hardErrors:', hardErrors.length, 'softErrors:', softErrors.length)
+
+      const allErrors = hardErrors.concat(softErrors)
+      if (allErrors.length > 0) {
+        const hasHard = hardErrors.length > 0
+        console.log('[positions-edit] 即将弹"校验未通过/有警告"弹窗')
+        wx.showModal({
+          title: hasHard ? '校验未通过，无法保存' : '校验有警告',
+          content: allErrors.slice(0, 5).join('\n\n') + (allErrors.length > 5 ? `\n\n（还有 ${allErrors.length - 5} 条）` : ''),
+          showCancel: !hasHard,        // 有硬错误 → 只一个按钮，必须修
+          confirmText: '回去修改',
+          cancelText: '忽略保存',
+          success: (res) => {
+            console.log('[positions-edit] 校验弹窗 success 回调 res=', res)
+            if (hasHard) return        // 单按钮场景，确认后留页
+            if (res.confirm) return    // 回去修改 → 留页
+            // 用户主动忽略软警告 → 直接保存，跳过二次确认弹窗
+            // （两个 wx.showModal 连着开会导致第二个不弹的诡异 bug）
+            this._doSave(list)
+          },
+          fail: (err) => {
+            console.error('[positions-edit] 校验弹窗 fail', err)
+          }
+        })
+        return
+      }
+
+      // 无任何错误 → 仍然弹一次确认，避免误点"保存入库"
+      console.log('[positions-edit] 即将弹"保存持仓"确认弹窗')
+      wx.showModal({
+        title: '保存持仓',
+        content: `将 ${list.length} 条持仓记入「${(this.data.account || {}).name || ''}」。\n仅替换本期该账户已录入的内容；历史快照保留不变。`,
+        success: (res) => {
+          console.log('[positions-edit] 保存确认弹窗 success 回调 res=', res)
+          if (!res.confirm) return
+          this._doSave(list)
+        },
+        fail: (err) => {
+          console.error('[positions-edit] 保存确认弹窗 fail', err)
+        }
+      })
+    } catch (err) {
+      console.error('[positions-edit] onSave 抛错', err)
+      wx.showToast({ title: 'onSave 异常: ' + (err && err.message || ''), icon: 'none' })
+    }
+  },
+
+  // 真正写库的动作：删旧 → 插新 → 汇丰汇率倒算 → 跳回盘仓页
+  async _doSave(list) {
+    wx.showLoading({ title: '保存中', mask: true })
+    try {
+      await investment.deletePositionsByAccount(this.data.snapshotId, this.data.accountId)
+      const payload = list.map(p => ({
+        name: p.name.trim(),
+        code: (p.code || '').trim(),
+        category: p.category,
+        currency: p.currency || this.data.defaultCurrency,
+        amount: Number(p.amount),
+        quantity: p.quantity ? Number(p.quantity) : null,
+        unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
+        note: p.note || ''
+      }))
+      await investment.addPositions(this.data.snapshotId, this.data.accountId, payload)
+      // 汇丰专属：用 持有总额 - CNY 产品 = USD 产品的 CNY 现值，倒算 USD/CNY 汇率并存到账户
+      await this._maybeBackCalcHsbcRate(payload)
+      wx.hideLoading()
+      wx.showToast({ title: '已保存', icon: 'success' })
+      setTimeout(() => {
+        // 持仓页是 tab，必须用 switchTab；redirectTo 到 tabBar 页会失败
+        wx.switchTab({ url: '/pages/investment/snapshot/snapshot' })
+      }, 600)
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: '保存失败：' + (e.message || ''), icon: 'none' })
+    }
   },
 
   // 汇丰账户专属：用 持有总额 - 所有 CNY 产品 = USD 产品的 CNY 等值，

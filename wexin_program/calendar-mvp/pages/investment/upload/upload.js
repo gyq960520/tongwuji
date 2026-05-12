@@ -1,6 +1,10 @@
 const investment = require('../../../utils/investment')
 const { BROKERS, CURRENCIES } = require('../../../utils/config')
 
+// 总计金额校验开关：true = 识别合计与顶部"总资产"对比，差太多弹窗提示；
+// false = 跳过校验，直接进编辑页（暂时关掉，等模型识别更稳定再开）
+const ENABLE_TOTAL_CHECK = false
+
 Page({
   data: {
     snapshotId: '',
@@ -18,6 +22,9 @@ Page({
   },
 
   async onLoad(query) {
+    console.log('[upload] onLoad 进入', query)
+    wx.hideLoading()  // 防御：上个页面遗留的 mask 跟过来盖住本页
+
     const bL = {}, cL = {}
     BROKERS.forEach(b => bL[b.key] = b.label)
     CURRENCIES.forEach(c => cL[c.code] = c.label)
@@ -26,8 +33,16 @@ Page({
       brokerLabel: bL,
       currencyLabel: cL
     })
+    console.log('[upload] 第一波 setData 完成')
 
-    const accounts = await investment.getMyAccounts()
+    let accounts = []
+    try {
+      accounts = await investment.getMyAccounts()
+      console.log('[upload] getMyAccounts 拿到', accounts.length, '个账户')
+    } catch (e) {
+      console.error('[upload] getMyAccounts 失败', e)
+      wx.showToast({ title: '加载账户失败', icon: 'none' })
+    }
     const accountNames = accounts.map(a => `${a.name} · ${cL[a.currency] || a.currency}`)
     this.setData({ accounts, accountNames })
 
@@ -102,15 +117,32 @@ Page({
     this.setData({ uploading: true })
     wx.showLoading({ title: `上传中 0/${this.data.images.length}`, mask: true })
 
-    // 1) 上传到云存储
+    // 1) 上传到云存储（先压缩再上传，quality 75 缩小体积 → 加速 OCR）
     const fileIDs = []
     for (let i = 0; i < this.data.images.length; i++) {
       const img = this.data.images[i]
       wx.showLoading({ title: `上传中 ${i + 1}/${this.data.images.length}`, mask: true })
+
+      // 压缩失败就退回原图，不阻塞流程（某些格式 / 平台不支持 compressImage）
+      let filePath = img.tempPath
+      try {
+        const compressed = await new Promise((resolve, reject) => {
+          wx.compressImage({
+            src: img.tempPath,
+            quality: 75,
+            success: resolve,
+            fail: reject
+          })
+        })
+        filePath = compressed.tempFilePath
+      } catch (e) {
+        console.warn('[upload] 压缩失败，使用原图', e && e.errMsg)
+      }
+
       try {
         const uploadRes = await wx.cloud.uploadFile({
           cloudPath: `positions/${this.data.accountId}/${Date.now()}_${i}.jpg`,
-          filePath: img.tempPath
+          filePath
         })
         fileIDs.push(uploadRes.fileID)
       } catch (e) {
@@ -197,7 +229,7 @@ Page({
     app.globalData.pendingExpectedTotal = totalAssets
     console.log('[upload] sumAmount:', sumAmount, 'totalAssets:', totalAssets)
 
-    if (totalAssets !== null) {
+    if (ENABLE_TOTAL_CHECK && totalAssets !== null) {
       const diff = Math.abs(sumAmount - totalAssets)
       const tolerance = Math.max(totalAssets * 0.001, 10) // 0.1% 或 10 元
       if (diff > tolerance) {
@@ -251,6 +283,7 @@ ${reason}
   },
 
   goToEdit(positions) {
+    wx.hideLoading()  // 防止上传/识别的 mask:true 跟着路由过去盖住下一页
     const app = getApp()
     app.globalData = app.globalData || {}
     app.globalData.pendingPositions = positions

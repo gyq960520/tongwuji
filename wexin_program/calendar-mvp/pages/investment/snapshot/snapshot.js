@@ -4,6 +4,7 @@ const {
   fmtPercentInt, fmtMoneyDetail, fmtMoneyChart, fmtRate,
   equalSplit100, normalizeToHundred, rebalanceTargets
 } = require('../../../utils/format')
+const { getContrastColor } = require('../../../utils/color')
 
 Page({
   data: {
@@ -32,12 +33,14 @@ Page({
     myPieSegments: [],
     myPieGradient: '',
     myTotalChart: '',
+    myPieLabels: [],
     myAccountsWithPositions: [],
 
     // TA 的
     otherPieSegments: [],
     otherPieGradient: '',
     otherTotalChart: '',
+    otherPieLabels: [],
     otherAccountsWithPositions: [],
 
     // 币种敞口（水平堆叠条 + 图例）
@@ -211,9 +214,11 @@ Page({
       myPieSegments: myPie.segments,
       myPieGradient: myPie.gradient,
       myTotalChart: myPie.totalChart,
+      myPieLabels: myPie.labels,
       otherPieSegments: otherPie.segments,
       otherPieGradient: otherPie.gradient,
       otherTotalChart: otherPie.totalChart,
+      otherPieLabels: otherPie.labels,
       myCurrencySegments: myCurBar.segments,
       myCurrencyGradient: myCurBar.gradient,
       otherCurrencySegments: otherCurBar.segments,
@@ -441,12 +446,12 @@ Page({
   // - 目标（targetInt）：直接读 targetMap，targetMap 已保证 = 100；null 表示不显示目标列
   _buildPieData(byCat, sortedKeys, targetMap) {
     if (!byCat || sortedKeys.length === 0) {
-      return { segments: [], gradient: '', totalChart: '' }
+      return { segments: [], gradient: '', totalChart: '', labels: [] }
     }
     // 用"只数正持仓"的方式算总额，避免净空仓的大类把分母拉负数；
     // 负数大类仍然会出现在 segments 里（显示金额），只是 percent 钳到 0 不进饼图。
     const total = sortedKeys.reduce((s, k) => s + Math.max(0, byCat[k] || 0), 0)
-    if (total <= 0) return { segments: [], gradient: '', totalChart: '' }
+    if (total <= 0) return { segments: [], gradient: '', totalChart: '', labels: [] }
 
     const arr = sortedKeys.map(cat => {
       const amt = byCat[cat] || 0
@@ -471,17 +476,34 @@ Page({
       arr.forEach(seg => { seg.targetInt = '' })
     }
 
+    // 扇区标签：只标 ≥ 8% 的，按扇区中点角度沿环中线半径摆放
+    // （pie-wrap 220rpx → 外半径 110，内洞半径约 57，环中线 ~84rpx）。
+    // conic-gradient 默认从 12 点起、顺时针；标签偏移 (x = r·sinθ, y = -r·cosθ)。
+    const LABEL_THRESHOLD = 8
+    const LABEL_RADIUS = 84
     let cum = 0
     const stops = []
+    const labels = []
     for (const seg of arr) {
       const start = cum
       cum += seg.percent
       stops.push(`${seg.color} ${start.toFixed(2)}% ${cum.toFixed(2)}%`)
+      if (seg.percent >= LABEL_THRESHOLD) {
+        const midAngleRad = (start + cum) / 2 / 100 * 2 * Math.PI
+        labels.push({
+          key: seg.key,
+          text: Math.round(seg.percent) + '%',
+          x: (LABEL_RADIUS * Math.sin(midAngleRad)).toFixed(2),
+          y: (-LABEL_RADIUS * Math.cos(midAngleRad)).toFixed(2),
+          textColor: getContrastColor(seg.color)
+        })
+      }
     }
     return {
       segments: arr,
       gradient: `conic-gradient(${stops.join(', ')})`,
-      totalChart: fmtMoneyChart(total)
+      totalChart: fmtMoneyChart(total),
+      labels
     }
   },
 

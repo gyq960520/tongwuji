@@ -61,6 +61,21 @@ function invalidateReflectionsCache(snapshotId) {
   else _reflectionsCache = {}
 }
 
+// 小程序端 db.collection().get() 单次最多 20 条，超 20 静默截断（不报错，悄悄丢）。
+// 凡集合可能 > 20 条的查询都走这个分页拉取。云函数端没这个限制，但本文件全在小程序侧跑。
+async function _paginatedGet(query) {
+  const pageSize = 20
+  const all = []
+  let skip = 0
+  while (true) {
+    const res = await query.skip(skip).limit(pageSize).get()
+    all.push(...res.data)
+    if (res.data.length < pageSize) break
+    skip += pageSize
+  }
+  return all
+}
+
 // ============== Account ==============
 
 async function getMyAccounts() {
@@ -230,11 +245,9 @@ async function createSnapshot(name) {
 async function getAllRoomSnapshots() {
   if (_allRoomSnapshotsCache) return _allRoomSnapshotsCache
   const { roomId } = await ensureContext()
-  const res = await db.collection('snapshots')
-    .where({ roomId })
-    .orderBy('createdAt', 'asc')
-    .get()
-  _allRoomSnapshotsCache = res.data
+  _allRoomSnapshotsCache = await _paginatedGet(
+    db.collection('snapshots').where({ roomId }).orderBy('createdAt', 'asc')
+  )
   return _allRoomSnapshotsCache
 }
 
@@ -325,12 +338,10 @@ async function closeSnapshot(snapshotId) {
 
 async function getPositionsBySnapshot(snapshotId) {
   if (_positionsCache[snapshotId]) return _positionsCache[snapshotId]
-  const res = await db.collection('positions')
-    .where({ snapshotId })
-    .orderBy('sortIndex', 'asc')
-    .get()
-  _positionsCache[snapshotId] = res.data
-  return res.data
+  _positionsCache[snapshotId] = await _paginatedGet(
+    db.collection('positions').where({ snapshotId }).orderBy('sortIndex', 'asc')
+  )
+  return _positionsCache[snapshotId]
 }
 
 async function getMyPositionsBySnapshot(snapshotId) {
@@ -378,10 +389,11 @@ async function addPositions(snapshotId, accountId, positions) {
 
 async function deletePositionsByAccount(snapshotId, accountId) {
   const { openid } = await ensureContext()
-  const res = await db.collection('positions')
-    .where({ snapshotId, accountId, _openid: openid })
-    .get()
-  for (const p of res.data) {
+  // 先用分页把所有目标拉全，再逐条删；不要边拉边删，否则 skip 会跟着集合缩水错位
+  const targets = await _paginatedGet(
+    db.collection('positions').where({ snapshotId, accountId, _openid: openid })
+  )
+  for (const p of targets) {
     await db.collection('positions').doc(p._id).remove()
   }
   invalidatePositionsCache(snapshotId)

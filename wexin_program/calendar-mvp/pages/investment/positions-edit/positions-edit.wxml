@@ -9,16 +9,16 @@
   </view>
   <view class="edit__rule"></view>
 
-  <block wx:for="{{list}}" wx:key="index">
+  <block wx:for="{{list}}" wx:for-index="rowIdx" wx:key="index">
     <view class="edit__row">
       <!-- 行 1：名称 + 删除 -->
       <view class="edit__row-line edit__row-line--head">
         <input class="edit__input edit__input--name"
                placeholder="名称"
                value="{{item.name}}"
-               data-index="{{index}}" data-field="name"
+               data-index="{{rowIdx}}" data-field="name"
                bindinput="onInputField" />
-        <text class="edit__del" data-index="{{index}}" bindtap="onRemoveRow">×</text>
+        <text class="edit__del" data-index="{{rowIdx}}" bindtap="onRemoveRow">×</text>
       </view>
 
       <!-- 行 2：代码（紧贴名称下方，通常空） -->
@@ -26,7 +26,7 @@
         <input class="edit__input edit__input--code"
                placeholder="代码（可空，如 600519）"
                value="{{item.code}}"
-               data-index="{{index}}" data-field="code"
+               data-index="{{rowIdx}}" data-field="code"
                bindinput="onInputField" />
       </view>
 
@@ -36,7 +36,7 @@
           <block wx:for="{{categories}}" wx:for-item="c" wx:key="key">
             <view class="edit__chip {{item.category === c.key ? 'edit__chip--active' : ''}}"
                   style="{{item.category === c.key ? 'background:' + c.color + ';color:#FFFFFF;border-color:' + c.color : ''}}"
-                  data-index="{{index}}" data-key="{{c.key}}"
+                  data-index="{{rowIdx}}" data-key="{{c.key}}"
                   bindtap="onPickCategory">{{c.label}}</view>
           </block>
         </view>
@@ -45,12 +45,12 @@
       <!-- 行 4：币种 + 金额 -->
       <view class="edit__row-line">
         <text class="edit__label">金额</text>
-        <view class="edit__currency-tag" data-index="{{index}}" bindtap="onCycleCurrency">{{item.currency}}</view>
+        <view class="edit__currency-tag" data-index="{{rowIdx}}" bindtap="onCycleCurrency">{{item.currency}}</view>
         <input class="edit__input edit__input--amount tnum"
                type="digit"
                placeholder="0.00"
                value="{{item.amount}}"
-               data-index="{{index}}" data-field="amount"
+               data-index="{{rowIdx}}" data-field="amount"
                bindinput="onInputField" />
       </view>
 
@@ -60,14 +60,14 @@
                type="digit"
                placeholder="数量"
                value="{{item.quantity}}"
-               data-index="{{index}}" data-field="quantity"
+               data-index="{{rowIdx}}" data-field="quantity"
                bindinput="onInputField" />
         <text class="edit__op">×</text>
         <input class="edit__input edit__input--price tnum"
                type="digit"
                placeholder="单价"
                value="{{item.unitPrice}}"
-               data-index="{{index}}" data-field="unitPrice"
+               data-index="{{rowIdx}}" data-field="unitPrice"
                bindinput="onInputField" />
       </view>
 
@@ -76,7 +76,7 @@
         <input class="edit__input edit__input--note"
                placeholder="备注（可空）"
                value="{{item.note}}"
-               data-index="{{index}}" data-field="note"
+               data-index="{{rowIdx}}" data-field="note"
                bindinput="onInputField" />
       </view>
     </view>

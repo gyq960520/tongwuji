@@ -67,6 +67,9 @@
             <view class="snapshot__pie-hole">
               <text class="snapshot__pie-total tnum">{{myTotalChart}}</text>
             </view>
+            <block wx:for="{{myPieLabels}}" wx:key="key">
+              <view class="snapshot__pie-label" style="color: {{item.textColor}}; transform: translate(-50%, -50%) translate({{item.x}}rpx, {{item.y}}rpx);">{{item.text}}</view>
+            </block>
           </view>
           <view class="snapshot__legend">
             <view class="snapshot__legend-header">
@@ -176,6 +179,9 @@
             <view class="snapshot__pie-hole">
               <text class="snapshot__pie-total tnum">{{otherTotalChart}}</text>
             </view>
+            <block wx:for="{{otherPieLabels}}" wx:key="key">
+              <view class="snapshot__pie-label" style="color: {{item.textColor}}; transform: translate(-50%, -50%) translate({{item.x}}rpx, {{item.y}}rpx);">{{item.text}}</view>
+            </block>
           </view>
           <view class="snapshot__legend">
             <block wx:for="{{otherPieSegments}}" wx:key="key">

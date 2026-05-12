@@ -5,8 +5,8 @@
     "miniprogram": {
       "list": [
         {
-          "name": "pages/investment/accounts/accounts",
-          "pathName": "pages/investment/accounts/accounts",
+          "name": "pages/investment/upload/upload",
+          "pathName": "pages/investment/upload/upload",
           "query": "",
           "scene": null,
           "launchMode": "default"
