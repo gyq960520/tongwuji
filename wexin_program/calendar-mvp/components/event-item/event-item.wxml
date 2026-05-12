@@ -1,4 +1,4 @@
-<view class="event-item" bindtap="onTap" wx:if="{{event}}">
+<view class="event-item {{isPast ? 'event-item--past' : ''}}" bindtap="onTap" wx:if="{{event}}">
   <view class="event-item__dot" style="background:{{color}}"></view>
   <view class="event-item__emoji">{{emoji}}</view>
   <view class="event-item__main">

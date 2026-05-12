@@ -1,6 +1,6 @@
 const { getEventById, addEvent, updateEvent, deleteEvent, getCategories, createCategory } = require('../../utils/store.js');
 const { todayStr, parseYMD } = require('../../utils/date.js');
-const { DEFAULT_EVENT_TYPES, DEFAULT_EVENT_TYPE_ORDER, MAX_CUSTOM_CATEGORIES, PRESET_EMOJI_GROUPS } = require('../../utils/config.js');
+const { DEFAULT_EVENT_TYPES, DEFAULT_EVENT_TYPE_ORDER, MAX_CUSTOM_CATEGORIES, PRESET_EMOJI_GROUPS, RECURRENCE_FREQS, RECURRENCE_LABELS } = require('../../utils/config.js');
 
 const TYPE_OPTIONS = DEFAULT_EVENT_TYPE_ORDER.map(key => ({
   key,
@@ -27,6 +27,10 @@ Page({
     customCategories: [],
     canAddCustom: true,
     isEdit: false,
+    // 周期事件：picker 显示用 labels（平行数组），index 0 = 不重复
+    recurrenceLabels: RECURRENCE_LABELS,
+    recurrenceIndex: 0,
+    recurrenceUntil: '',   // '' 表示永不
     // 自定义分类 sheet 状态
     presetEmojiGroups: PRESET_EMOJI_GROUPS,
     showSheet: false,
@@ -40,7 +44,7 @@ Page({
     if (options && options.id) {
       const ev = await getEventById(options.id);
       if (ev) {
-        this.setData({
+        const patch = {
           id: ev.id,
           title: ev.title,
           type: ev.type,
@@ -49,7 +53,15 @@ Page({
           time: ev.time,
           note: ev.note,
           isEdit: true
-        });
+        };
+        if (ev.recurrence && ev.recurrence.freq) {
+          const idx = RECURRENCE_FREQS.indexOf(ev.recurrence.freq);
+          if (idx >= 0) {
+            patch.recurrenceIndex = idx;
+            patch.recurrenceUntil = ev.recurrence.until || '';
+          }
+        }
+        this.setData(patch);
         wx.setNavigationBarTitle({ title: '编辑事件' });
         return;
       }
@@ -75,7 +87,33 @@ Page({
   },
 
   onTitleInput(e) { this.setData({ title: e.detail.value }); },
-  onSelectType(e) { this.setData({ type: e.currentTarget.dataset.key }); },
+
+  // 切到生日/纪念日时，如果"重复"还是不重复 → 自动改成"每年"（默认勾上但用户可改回）
+  onSelectType(e) {
+    const newType = e.currentTarget.dataset.key;
+    const oldType = this.data.type;
+    const becameAnnual = (newType === 'birthday' || newType === 'anniversary')
+                      && (oldType !== 'birthday' && oldType !== 'anniversary')
+                      && this.data.recurrenceIndex === 0;
+    const patch = { type: newType };
+    if (becameAnnual) patch.recurrenceIndex = 3; // 'yearly'
+    this.setData(patch);
+  },
+
+  onPickRecurrence(e) {
+    const idx = Number(e.detail.value);
+    const patch = { recurrenceIndex: idx };
+    // 切回"不重复"时清掉"结束于"，避免下次切回"每年"时残留旧的 until
+    if (idx === 0) patch.recurrenceUntil = '';
+    this.setData(patch);
+  },
+
+  onPickRecurrenceUntil(e) {
+    this.setData({ recurrenceUntil: e.detail.value });
+  },
+  onClearRecurrenceUntil() {
+    this.setData({ recurrenceUntil: '' });
+  },
 
   // "+" 按钮：打开新建自定义分类 sheet
   onAddCustom() {
@@ -165,7 +203,7 @@ Page({
   onNoteInput(e) { this.setData({ note: e.detail.value }); },
 
   async onSave() {
-    const { title, type, date, time, note, id, isEdit } = this.data;
+    const { title, type, date, time, note, id, isEdit, recurrenceIndex, recurrenceUntil } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
       return;
@@ -174,7 +212,12 @@ Page({
       wx.showToast({ title: '请选择日期', icon: 'none' });
       return;
     }
-    const payload = { title: title.trim(), type, date, time, note };
+    // 周期事件：不重复存 null（既覆盖新建的"不存字段"，也让 update 操作能清空旧记录的 recurrence）
+    const recurrence = recurrenceIndex > 0 ? {
+      freq: RECURRENCE_FREQS[recurrenceIndex],
+      until: recurrenceUntil || null
+    } : null;
+    const payload = { title: title.trim(), type, date, time, note, recurrence };
     if (isEdit) await updateEvent(id, payload);
     else await addEvent(payload);
     wx.navigateBack();

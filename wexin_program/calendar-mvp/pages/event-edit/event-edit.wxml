@@ -55,6 +55,23 @@
     <text wx:if="{{time}}" class="edit__clear text-tertiary" catchtap="onClearTime">清除</text>
   </view>
 
+  <picker mode="selector" range="{{recurrenceLabels}}" value="{{recurrenceIndex}}" bindchange="onPickRecurrence">
+    <view class="edit__row edit__row--picker">
+      <text class="edit__label text-secondary">重复</text>
+      <text class="edit__value tnum">{{recurrenceLabels[recurrenceIndex]}} ›</text>
+    </view>
+  </picker>
+
+  <view wx:if="{{recurrenceIndex > 0}}" class="edit__row edit__row--picker">
+    <picker mode="date" value="{{recurrenceUntil}}" bindchange="onPickRecurrenceUntil" class="edit__time-picker">
+      <view class="edit__time-inner">
+        <text class="edit__label text-secondary">结束于</text>
+        <text class="edit__value tnum">{{recurrenceUntil ? recurrenceUntil + ' ›' : '永不 ›'}}</text>
+      </view>
+    </picker>
+    <text wx:if="{{recurrenceUntil}}" class="edit__clear text-tertiary" catchtap="onClearRecurrenceUntil">清除</text>
+  </view>
+
   <view class="edit__row">
     <textarea
       class="edit__note"

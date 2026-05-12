@@ -1,4 +1,4 @@
-const { getEvents, getCategories } = require('../../utils/store.js');
+const { getEventsInRange, getCategories } = require('../../utils/store.js');
 const {
   formatChineseDate,
   todayStr,
@@ -34,14 +34,18 @@ Page({
   },
 
   async refresh() {
-    const [all, customCategories] = await Promise.all([getEvents(), getCategories()]);
     const today = todayStr();
     const [, sunday] = weekRange(today);
     const future90 = addDays(today, 90);
 
-    const todayEvents = all.filter(e => e.date === today).sort(timeAsc);
-    const weekGroups = groupByDate(all.filter(e => e.date > today && e.date <= sunday));
-    const futureGroups = groupByDate(all.filter(e => e.date > sunday && e.date <= future90));
+    // getEventsInRange 自动展开周期事件 —— 一条"每月信用卡"规则会变成 3 个月内多条 occurrence
+    const [allInWindow, customCategories] = await Promise.all([
+      getEventsInRange(today, future90),
+      getCategories()
+    ]);
+    const todayEvents = allInWindow.filter(e => e.date === today).sort(timeAsc);
+    const weekGroups = groupByDate(allInWindow.filter(e => e.date > today && e.date <= sunday));
+    const futureGroups = groupByDate(allInWindow.filter(e => e.date > sunday));
 
     this.setData({ todayEvents, weekGroups, futureGroups, customCategories });
   },

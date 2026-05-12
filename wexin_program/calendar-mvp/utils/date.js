@@ -135,6 +135,65 @@ function getDayKind(dateStr) {
   return 'workday';
 }
 
+/**
+ * 把带 recurrence 字段的事件展开成多个 occurrence（在 [windowStart, windowEnd] 内）。
+ *
+ * 规则：
+ *   - 起始日 = event.date 的"日"部分作为 anchorDay（如 2026-03-15 anchorDay=15）
+ *   - 每月：每隔 1 个月在同一个 anchorDay 产生一次
+ *   - 每季度：每隔 3 个月
+ *   - 每年：每隔 12 个月
+ *   - 目标月没有 anchorDay（如 anchorDay=31 而 2 月只有 28/29 天） → 该月跳过，不挪到次月或月末
+ *   - until 之后停止；超出 windowEnd 也停止；保险措施：最多迭代 1000 步
+ *
+ * 不重复事件（无 recurrence.freq）：只在窗口内时返回 [event]，否则返回 []。
+ *
+ * 注意：每个 occurrence 是新对象（浅拷贝 event 后覆盖 date），共享原 _id / id —— 调用方
+ * 拿到其中任意一个点编辑，跳 event-edit 时 by id 都能找到原始规则。
+ */
+function expandRecurrence(event, windowStart, windowEnd) {
+  if (!event) return [];
+  const freq = event.recurrence && event.recurrence.freq;
+  if (!freq) {
+    if (event.date >= windowStart && event.date <= windowEnd) return [event];
+    return [];
+  }
+  const until = (event.recurrence && event.recurrence.until) || null;
+  const startDate = parseYMD(event.date);
+  const anchorDay = startDate.getDate();
+  const stepMonths = freq === 'monthly' ? 1 : (freq === 'quarterly' ? 3 : 12);
+
+  const windowStartDate = parseYMD(windowStart);
+  const windowEndDate = parseYMD(windowEnd);
+  const untilDate = until ? parseYMD(until) : null;
+
+  const instances = [];
+  const maxIter = 1000;
+  for (let step = 0; step < maxIter; step++) {
+    const baseMonthIdx = startDate.getMonth() + step * stepMonths;
+    const targetYear = startDate.getFullYear() + Math.floor(baseMonthIdx / 12);
+    const targetMonth = ((baseMonthIdx % 12) + 12) % 12;
+
+    // 提前出口：目标月第 1 天已经超出右边界 / until → 后面更晚的也不必试
+    const monthStart = new Date(targetYear, targetMonth, 1);
+    if (monthStart > windowEndDate) break;
+    if (untilDate && monthStart > untilDate) break;
+
+    // 该月没有 anchorDay 这一天 → 跳过，但继续下一步
+    const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    if (anchorDay > lastDayOfMonth) continue;
+
+    const occurDate = new Date(targetYear, targetMonth, anchorDay);
+    if (untilDate && occurDate > untilDate) break;
+    if (occurDate > windowEndDate) break;
+
+    if (occurDate >= windowStartDate) {
+      instances.push(Object.assign({}, event, { date: formatYMD(occurDate) }));
+    }
+  }
+  return instances;
+}
+
 module.exports = {
   formatYMD,
   formatChineseDate,
@@ -149,5 +208,6 @@ module.exports = {
   parseYMD,
   isWeekend,
   isOffDay,
-  getDayKind
+  getDayKind,
+  expandRecurrence
 };

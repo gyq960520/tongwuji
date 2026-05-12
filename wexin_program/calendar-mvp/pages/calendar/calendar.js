@@ -1,4 +1,4 @@
-const { getEvents, getEventsByDate, getCategories } = require('../../utils/store.js');
+const { getEventsInRange, getEventsByDate, getCategories } = require('../../utils/store.js');
 const { todayStr, monthGrid, timeAsc, formatChineseShort, getDayKind, isWeekend } = require('../../utils/date.js');
 const { resolveEventType } = require('../../utils/config.js');
 
@@ -41,13 +41,19 @@ Page({
     const { year, month, selectedDate } = this.data;
     if (!year) return;
 
-    const [events, customCategories] = await Promise.all([
-      getEvents(),
+    // 先算出 monthGrid 的可视窗口（含前后月填充天），再按窗口拉事件（含周期事件展开）。
+    // 不用 getEvents() 是因为它返回原始记录（一条周期规则只占 1 条），月历需要的是 occurrence 级数据。
+    const rawGrid = monthGrid(year, month);
+    const windowStart = rawGrid[0].dateStr;
+    const windowEnd = rawGrid[rawGrid.length - 1].dateStr;
+
+    const [eventsInWindow, customCategories] = await Promise.all([
+      getEventsInRange(windowStart, windowEnd),
       getCategories()
     ]);
     // 每日首个事件（按时间排序，全天最前），用于在格子下方显示一个 emoji
     const buckets = {};
-    events.forEach(e => {
+    eventsInWindow.forEach(e => {
       if (!buckets[e.date]) buckets[e.date] = [];
       buckets[e.date].push(e);
     });
@@ -57,7 +63,7 @@ Page({
       firstByDate[d] = buckets[d][0];
     });
 
-    const grid = monthGrid(year, month).map(cell => {
+    const grid = rawGrid.map(cell => {
       const ev = firstByDate[cell.dateStr];
       const emoji = ev ? resolveEventType(ev.type, customCategories).emoji : '';
       const dayKind = cell.isCurrentMonth ? getDayKind(cell.dateStr) : 'workday';

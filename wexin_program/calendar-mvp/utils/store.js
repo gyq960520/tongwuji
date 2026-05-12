@@ -5,6 +5,8 @@
 // 因为本模块会在 app.onLaunch 之前被 pages[0] 的 require 加载，
 // 那时 wx.cloud.init 还没执行。
 
+const { expandRecurrence } = require('./date.js');
+
 // 内存缓存
 let _eventsCache = null
 let _settingsCache = null
@@ -207,6 +209,11 @@ async function addEvent(event) {
     date: event.date,
     time: event.time || '',
     note: event.note || '',
+    // recurrence 字段：有 freq 才存对象；不重复存 null（与 update 时清空保持一致）
+    recurrence: (event.recurrence && event.recurrence.freq) ? {
+      freq: event.recurrence.freq,
+      until: event.recurrence.until || null
+    } : null,
     createdAt: now,
     updatedAt: now
   }
@@ -236,14 +243,33 @@ async function getEventById(id) {
   return events.find(e => e._id === id || e.id === id)
 }
 
+// 注意：以下两个查询会自动展开周期事件 —— 一条带 recurrence 的事件可能产生多条 occurrence。
+// 每个 occurrence 共享原 _id，但 date 字段不同。
+
 async function getEventsByDate(dateStr) {
   const events = await getEvents()
-  return events.filter(e => e.date === dateStr)
+  const result = []
+  for (const e of events) {
+    if (e.recurrence && e.recurrence.freq) {
+      result.push(...expandRecurrence(e, dateStr, dateStr))
+    } else if (e.date === dateStr) {
+      result.push(e)
+    }
+  }
+  return result
 }
 
 async function getEventsInRange(startStr, endStr) {
   const events = await getEvents()
-  return events.filter(e => e.date >= startStr && e.date <= endStr)
+  const result = []
+  for (const e of events) {
+    if (e.recurrence && e.recurrence.freq) {
+      result.push(...expandRecurrence(e, startStr, endStr))
+    } else if (e.date >= startStr && e.date <= endStr) {
+      result.push(e)
+    }
+  }
+  return result
 }
 
 // ---------- 设置 ----------
