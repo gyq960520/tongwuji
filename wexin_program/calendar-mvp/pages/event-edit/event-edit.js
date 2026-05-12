@@ -31,6 +31,8 @@ Page({
     recurrenceLabels: RECURRENCE_LABELS,
     recurrenceIndex: 0,
     recurrenceUntil: '',   // '' 表示永不
+    // 共享/私有：默认 true，私有事件只有创建者可见可编辑
+    isShared: true,
     // 自定义分类 sheet 状态
     presetEmojiGroups: PRESET_EMOJI_GROUPS,
     showSheet: false,
@@ -61,6 +63,8 @@ Page({
             patch.recurrenceUntil = ev.recurrence.until || '';
           }
         }
+        // isShared 字段：老事件没这字段，按共享处理（与 store.getEvents 的 filter 逻辑一致）
+        patch.isShared = ev.isShared !== false;
         this.setData(patch);
         wx.setNavigationBarTitle({ title: '编辑事件' });
         return;
@@ -113,6 +117,10 @@ Page({
   },
   onClearRecurrenceUntil() {
     this.setData({ recurrenceUntil: '' });
+  },
+
+  onToggleShare(e) {
+    this.setData({ isShared: e.detail.value });
   },
 
   // "+" 按钮：打开新建自定义分类 sheet
@@ -203,7 +211,7 @@ Page({
   onNoteInput(e) { this.setData({ note: e.detail.value }); },
 
   async onSave() {
-    const { title, type, date, time, note, id, isEdit, recurrenceIndex, recurrenceUntil } = this.data;
+    const { title, type, date, time, note, id, isEdit, recurrenceIndex, recurrenceUntil, isShared } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
       return;
@@ -217,10 +225,14 @@ Page({
       freq: RECURRENCE_FREQS[recurrenceIndex],
       until: recurrenceUntil || null
     } : null;
-    const payload = { title: title.trim(), type, date, time, note, recurrence };
-    if (isEdit) await updateEvent(id, payload);
-    else await addEvent(payload);
-    wx.navigateBack();
+    const payload = { title: title.trim(), type, date, time, note, recurrence, isShared };
+    try {
+      if (isEdit) await updateEvent(id, payload);
+      else await addEvent(payload);
+      wx.navigateBack();
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' });
+    }
   },
 
   onDelete() {
@@ -230,8 +242,12 @@ Page({
       confirmColor: '#D9483B',
       success: async (res) => {
         if (res.confirm) {
-          await deleteEvent(this.data.id);
-          wx.navigateBack();
+          try {
+            await deleteEvent(this.data.id);
+            wx.navigateBack();
+          } catch (e) {
+            wx.showToast({ title: (e && e.message) || '删除失败', icon: 'none' });
+          }
         }
       }
     });

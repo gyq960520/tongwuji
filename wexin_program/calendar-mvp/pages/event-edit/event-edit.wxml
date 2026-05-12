@@ -72,6 +72,11 @@
     <text wx:if="{{recurrenceUntil}}" class="edit__clear text-tertiary" catchtap="onClearRecurrenceUntil">清除</text>
   </view>
 
+  <view class="edit__row edit__row--picker">
+    <text class="edit__label text-secondary">共享对方</text>
+    <switch checked="{{isShared}}" bindchange="onToggleShare" color="#1D1D1F" />
+  </view>
+
   <view class="edit__row">
     <textarea
       class="edit__note"

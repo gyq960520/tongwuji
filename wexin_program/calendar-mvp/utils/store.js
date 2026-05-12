@@ -190,10 +190,14 @@ async function getEvents() {
   if (_eventsCache) return _eventsCache
   const roomId = await getCurrentRoomId()
   if (!roomId) return []
+  const openid = await ensureOpenId()
   const db = wx.cloud.database()
   const res = await db.collection('events').where({ roomId }).orderBy('date', 'asc').get()
-  // 把 _id 同时暴露成 id，让旧调用方（event-item / 页面）零改动
-  _eventsCache = res.data.map(e => ({ ...e, id: e._id }))
+  // 客户端过滤私有事件：共享(isShared !== false，含老数据 undefined) 或 本人创建的私有 都保留。
+  // 注意：这是"软隐私"——对方理论上能通过直查 DB 看到原始记录，但 UI 上看不到。情侣场景够用。
+  _eventsCache = res.data
+    .filter(e => e.isShared !== false || e._openid === openid)
+    .map(e => ({ ...e, id: e._id }))
   return _eventsCache
 }
 
@@ -209,6 +213,8 @@ async function addEvent(event) {
     date: event.date,
     time: event.time || '',
     note: event.note || '',
+    // 共享/私有：默认 true（绝大多数事件都共享），显式 false 才是私有
+    isShared: event.isShared !== false,
     // recurrence 字段：有 freq 才存对象；不重复存 null（与 update 时清空保持一致）
     recurrence: (event.recurrence && event.recurrence.freq) ? {
       freq: event.recurrence.freq,
@@ -224,17 +230,27 @@ async function addEvent(event) {
   return data
 }
 
+// 走 manageEvent 云函数代理：admin SDK 跑 update，绕开"仅创建者可写"权限，
+// 同时云函数会校验 caller 在 event 的 roomId 成员里（共享事件）或是创建者（私有事件）。
 async function updateEvent(id, patch) {
-  // 注意：权限是"仅创建者可写"，对方创建的事件这里会失败。MVP 接受这个限制。
-  const db = wx.cloud.database()
-  const data = { ...patch, updatedAt: Date.now() }
-  await db.collection('events').doc(id).update({ data })
+  const res = await wx.cloud.callFunction({
+    name: 'manageEvent',
+    data: { action: 'update', id, patch }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '更新失败')
+  }
   _eventsCache = null
 }
 
 async function deleteEvent(id) {
-  const db = wx.cloud.database()
-  await db.collection('events').doc(id).remove()
+  const res = await wx.cloud.callFunction({
+    name: 'manageEvent',
+    data: { action: 'delete', id }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '删除失败')
+  }
   _eventsCache = null
 }
 
