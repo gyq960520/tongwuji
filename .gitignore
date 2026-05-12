@@ -3,3 +3,7 @@ yqsl_competitive_data_program/
 
 # Excel 临时锁文件
 ~$*
+
+# 本地素材 / 测试用例（OCR 测试截图集 + 头像素材），不入仓
+wexin_program/test/
+wexin_program/同屋记头像*.png
