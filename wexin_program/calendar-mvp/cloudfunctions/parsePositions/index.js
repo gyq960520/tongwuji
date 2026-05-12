@@ -402,12 +402,15 @@ function buildGenericPrompt(accountCurrency) {
 // ============== API 调用 ==============
 
 async function callZhipu(imageBase64, broker, accountCurrency) {
+  console.log('[callZhipu] 进入, base64 长度=', imageBase64 ? imageBase64.length : 0, ', broker=', broker)
   const apiKey = process.env.ZHIPU_API_KEY
+  console.log('[callZhipu] ZHIPU_API_KEY 存在=', !!apiKey, ', 长度=', apiKey ? apiKey.length : 0)
   if (!apiKey) {
     throw new Error('未配置 ZHIPU_API_KEY 环境变量')
   }
 
   const got = require('got')
+  console.log('[callZhipu] got 加载完成, 即将 POST 到', ZHIPU_API_URL)
   const prompt = buildPrompt(broker, accountCurrency)
   const response = await got.post(ZHIPU_API_URL, {
     timeout: { request: 60000 },
@@ -435,8 +438,47 @@ async function callZhipu(imageBase64, broker, accountCurrency) {
     },
     responseType: 'json'
   })
-
+  console.log('[callZhipu] HTTP 响应到达, statusCode=', response.statusCode)
   return response.body
+}
+
+// 智谱接口偶发 TLS 握手被拒 (EPROTO / tlsv1 alert) 或瞬态 5xx，
+// 包一层 retry：快速失败的可重试错重试 1 次；慢速失败不重试以免撞云函数 60s 上限。
+async function callZhipuWithRetry(imageBase64, broker, accountCurrency) {
+  const startTime = Date.now()
+  try {
+    return await callZhipu(imageBase64, broker, accountCurrency)
+  } catch (e1) {
+    const elapsedMs = Date.now() - startTime
+    const retryable = isRetryableZhipuError(e1)
+    console.warn(`[callZhipu] 第 1 次失败 (${elapsedMs}ms):`, e1 && e1.message, ', 可重试=', retryable)
+    if (!retryable || elapsedMs > 10000) throw e1
+
+    console.log('[callZhipu] 1.5s 后重试一次')
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    try {
+      const result = await callZhipu(imageBase64, broker, accountCurrency)
+      console.log('[callZhipu] 重试成功')
+      return result
+    } catch (e2) {
+      console.error('[callZhipu] 重试仍失败:', e2 && e2.message)
+      throw e2
+    }
+  }
+}
+
+function isRetryableZhipuError(e) {
+  if (!e) return false
+  const msg = ((e.message || '') + '').toLowerCase()
+  // TLS / SSL 握手层拒（智谱 WAF 偶发硬封）
+  if (msg.includes('eproto') || msg.includes('tlsv1 alert') || msg.includes('ssl alert')) return true
+  // 网络层瞬态
+  if (msg.includes('econnreset') || msg.includes('econnrefused') || msg.includes('eai_again') || msg.includes('etimedout')) return true
+  // HTTP 限流 / 5xx
+  const code = e.response && e.response.statusCode
+  if (code === 429 || (code >= 500 && code < 600)) return true
+  return false
 }
 
 // ============== 结果处理 ==============
@@ -491,59 +533,82 @@ function normalizePositions(rawList, defaultCurrency) {
 }
 
 exports.main = async (event, context) => {
-  const accountCurrency = event.accountCurrency || 'CNY'
-  const broker = event.broker || 'other'
-  let imageBase64 = event.imageBase64
-
-  if (!imageBase64 && event.fileID) {
-    try {
-      const downloadRes = await cloud.downloadFile({ fileID: event.fileID })
-      imageBase64 = downloadRes.fileContent.toString('base64')
-    } catch (e) {
-      return { success: false, error: '下载图片失败: ' + e.message }
-    }
-  }
-
-  if (!imageBase64) {
-    return { success: false, error: '未提供图片' }
-  }
+  console.log('[parsePositions] === 函数进入 ===', {
+    broker: event.broker,
+    accountCurrency: event.accountCurrency,
+    hasFileID: !!event.fileID,
+    hasImageBase64: !!event.imageBase64,
+    fileID: event.fileID
+  })
 
   try {
-    console.log(`[parsePositions] broker=${broker}, accountCurrency=${accountCurrency}`)
-    const apiRes = await callZhipu(imageBase64, broker, accountCurrency)
+    const accountCurrency = event.accountCurrency || 'CNY'
+    const broker = event.broker || 'other'
+    let imageBase64 = event.imageBase64
 
-    // 详细日志：诊断"返回空 / reasoning 卡住 / token 截断"等问题
-    try {
-      console.log('[parsePositions] API 完整返回 (前 1000 字):',
-        JSON.stringify(apiRes).slice(0, 1000))
-    } catch (e) { /* 防 JSON.stringify 循环引用炸 */ }
-
-    const choice = apiRes && apiRes.choices && apiRes.choices[0]
-    const message = (choice && choice.message) || {}
-    const content = message.content || ''
-    const reasoning = message.reasoning_content || ''
-    const finishReason = choice ? choice.finish_reason : '(no choice)'
-
-    console.log('[parsePositions] finish_reason:', finishReason)
-    console.log('[parsePositions] reasoning_content (前 500 字):', reasoning.slice(0, 500))
-    console.log('[parsePositions] content (前 500 字):', content.slice(0, 500))
-    const result = extractJSON(content)
-    const positions = normalizePositions(result.positions, accountCurrency)
-    console.log('[parsePositions] 解析出 positions 数:', positions.length, 'totalAssets:', result.totalAssets)
-    return {
-      success: true,
-      broker,
-      totalAssets: result.totalAssets,
-      positions,
-      rawText: content,
-      tokensUsed: (apiRes && apiRes.usage && apiRes.usage.total_tokens) || 0
+    if (!imageBase64 && event.fileID) {
+      console.log('[parsePositions] 开始 cloud.downloadFile')
+      try {
+        const downloadRes = await cloud.downloadFile({ fileID: event.fileID })
+        const fileLen = downloadRes && downloadRes.fileContent ? downloadRes.fileContent.length : 0
+        console.log('[parsePositions] downloadFile 完成, byte=', fileLen)
+        imageBase64 = downloadRes.fileContent.toString('base64')
+        console.log('[parsePositions] base64 编码完成, len=', imageBase64.length)
+      } catch (e) {
+        console.error('[parsePositions] downloadFile 失败', e && e.message, e && e.stack)
+        return { success: false, error: '下载图片失败: ' + e.message }
+      }
     }
-  } catch (e) {
-    console.error('[parsePositions] 调用失败:', e.message, e.response && e.response.body)
+
+    if (!imageBase64) {
+      console.warn('[parsePositions] 没有 imageBase64 也没有 fileID，提前返回')
+      return { success: false, error: '未提供图片' }
+    }
+
+    try {
+      console.log(`[parsePositions] broker=${broker}, accountCurrency=${accountCurrency}`)
+      const apiRes = await callZhipuWithRetry(imageBase64, broker, accountCurrency)
+
+      // 详细日志：诊断"返回空 / reasoning 卡住 / token 截断"等问题
+      try {
+        console.log('[parsePositions] API 完整返回 (前 1000 字):',
+          JSON.stringify(apiRes).slice(0, 1000))
+      } catch (e) { /* 防 JSON.stringify 循环引用炸 */ }
+
+      const choice = apiRes && apiRes.choices && apiRes.choices[0]
+      const message = (choice && choice.message) || {}
+      const content = message.content || ''
+      const reasoning = message.reasoning_content || ''
+      const finishReason = choice ? choice.finish_reason : '(no choice)'
+
+      console.log('[parsePositions] finish_reason:', finishReason)
+      console.log('[parsePositions] reasoning_content (前 500 字):', reasoning.slice(0, 500))
+      console.log('[parsePositions] content (前 500 字):', content.slice(0, 500))
+      const result = extractJSON(content)
+      const positions = normalizePositions(result.positions, accountCurrency)
+      console.log('[parsePositions] 解析出 positions 数:', positions.length, 'totalAssets:', result.totalAssets)
+      return {
+        success: true,
+        broker,
+        totalAssets: result.totalAssets,
+        positions,
+        rawText: content,
+        tokensUsed: (apiRes && apiRes.usage && apiRes.usage.total_tokens) || 0
+      }
+    } catch (e) {
+      console.error('[parsePositions] callZhipu 失败:', e && e.message, e && e.stack, e && e.response && e.response.body)
+      return {
+        success: false,
+        error: e.message,
+        detail: e.response && e.response.body
+      }
+    }
+  } catch (outerErr) {
+    // 兜底：wx-server-sdk 的 stream error 偶有从内层 try/catch 旁路逃出，到这里能保证返回结构化错误
+    console.error('[parsePositions] === 顶层 uncaught ===', outerErr && outerErr.message, outerErr && outerErr.stack)
     return {
       success: false,
-      error: e.message,
-      detail: e.response && e.response.body
+      error: 'function crashed: ' + (outerErr && outerErr.message)
     }
   }
 }
