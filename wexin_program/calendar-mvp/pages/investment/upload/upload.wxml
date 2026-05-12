@@ -22,6 +22,7 @@
     </view>
   </view>
   <view class="upload__hint">已选 {{images.length}}/9 张</view>
+  <view class="upload__hint">每张截图请含完整产品行（多张请略微重叠避免切断）</view>
   <view class="upload__rule"></view>
 
   <view class="upload__btn {{!accountId || images.length === 0 || uploading || parsing ? 'upload__btn--disabled' : ''}}" bindtap="onStartParse">
