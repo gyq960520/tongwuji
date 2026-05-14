@@ -1,4 +1,4 @@
-const { getEventsInRange, getCategories } = require('../../utils/store.js');
+const { getEventsInRange, getCategories, watchRoomEvents } = require('../../utils/store.js');
 const {
   formatChineseDate,
   todayStr,
@@ -19,6 +19,16 @@ Page({
 
   onLoad() {
     this.setData({ todayLabel: formatChineseDate(new Date()) });
+    // 实时监听：另一人新增/编辑/删除事件 → 自动 refresh。
+    // tab 页 onUnload 只在小程序销毁时触发，所以 watcher 生命周期 ≈ 整个 session。
+    watchRoomEvents(() => this.refresh()).then(w => { this._eventsWatcher = w });
+  },
+
+  onUnload() {
+    if (this._eventsWatcher) {
+      this._eventsWatcher.close();
+      this._eventsWatcher = null;
+    }
   },
 
   onShow() {

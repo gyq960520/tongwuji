@@ -339,6 +339,30 @@ function generateInviteCode() {
   return code
 }
 
+// 实时监听本房间的 events 集合：另一人新增/编辑/删除事件时，watcher 触发回调
+// 调用方应在 onLoad 拿到 watcher 引用，onUnload 时 close()。
+// 跳过 init 快照（首次推送当前所有数据），因为页面 onLoad 已经走正常 fetch 拉过，不重复刷新。
+// 200ms debounce，防止短时间内多条变更（如批量删除）触发 N 次 refresh。
+async function watchRoomEvents(callback) {
+  const roomId = await getCurrentRoomId()
+  if (!roomId) return null
+  console.log('[watch:events] 启动监听 roomId=', roomId)
+  let timer = null
+  const db = wx.cloud.database()
+  return db.collection('events').where({ roomId }).watch({
+    onChange: (snapshot) => {
+      console.log('[watch:events] onChange', snapshot.type, 'docChanges=', (snapshot.docChanges || []).length)
+      if (snapshot.type === 'init') return
+      // 对方写入触发的变更：本地 _eventsCache 是旧的，必须先清掉再让上层 refresh，
+      // 否则 callback 走 getEvents() 还是吃到旧缓存。
+      _eventsCache = null
+      clearTimeout(timer)
+      timer = setTimeout(() => callback(snapshot), 200)
+    },
+    onError: (err) => { console.warn('[watch:events] onError', err) }
+  })
+}
+
 module.exports = {
   // 小屋
   getCurrentRoomId,
@@ -354,6 +378,7 @@ module.exports = {
   deleteEvent,
   getEventsByDate,
   getEventsInRange,
+  watchRoomEvents,
   // 设置
   getSettings,
   updateSettings,

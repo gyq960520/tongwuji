@@ -1,4 +1,4 @@
-const { getEventsInRange, getEventsByDate, getCategories } = require('../../utils/store.js');
+const { getEventsInRange, getEventsByDate, getCategories, watchRoomEvents } = require('../../utils/store.js');
 const { todayStr, monthGrid, timeAsc, formatChineseShort, getDayKind, isWeekend } = require('../../utils/date.js');
 const { resolveEventType } = require('../../utils/config.js');
 
@@ -18,6 +18,16 @@ Page({
   onLoad() {
     const now = new Date();
     this.setMonth(now.getFullYear(), now.getMonth() + 1, todayStr());
+    // 实时监听：另一人新增/编辑/删除事件 → 自动 recalc。
+    // tab 页 onUnload 只在小程序销毁时触发，所以 watcher 生命周期 ≈ 整个 session。
+    watchRoomEvents(() => this.recalc()).then(w => { this._eventsWatcher = w });
+  },
+
+  onUnload() {
+    if (this._eventsWatcher) {
+      this._eventsWatcher.close();
+      this._eventsWatcher = null;
+    }
   },
 
   onShow() {
@@ -25,6 +35,12 @@ Page({
       this.getTabBar().setData({ selected: 1 });
     }
     this.recalc();
+  },
+
+  // 下拉刷新作为 watcher 兜底（断网/重连场景）
+  async onPullDownRefresh() {
+    await this.recalc();
+    wx.stopPullDownRefresh();
   },
 
   setMonth(year, month, selectedDate) {
