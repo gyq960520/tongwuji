@@ -336,6 +336,93 @@ async function closeSnapshot(snapshotId) {
   invalidateSnapshotCache()
 }
 
+// 重新开启已关闭的快照。
+// 约束：只能开自己的；目标必须是 closed。
+// options.autoCloseOther = true 时，自己另有 open 快照会被先关掉（保持"一人最多一个 open"模型）。
+// 失败时返回 { success: false, error }，UI 层 toast。
+async function reopenSnapshot(snapshotId, options) {
+  const { roomId, openid } = await ensureContext()
+  const autoCloseOther = !!(options && options.autoCloseOther)
+
+  let target
+  try {
+    const res = await db.collection('snapshots').doc(snapshotId).get()
+    target = res.data
+  } catch (e) {
+    return { success: false, error: '快照不存在' }
+  }
+  if (!target) return { success: false, error: '快照不存在' }
+  if (target._openid !== openid) return { success: false, error: '只能重开自己的快照' }
+  if (target.status === 'open') return { success: false, error: '本期已经是进行中状态' }
+
+  const otherOpenRes = await db.collection('snapshots')
+    .where({ roomId, _openid: openid, status: 'open' })
+    .limit(5).get()
+  const otherOpen = otherOpenRes.data
+  if (otherOpen.length > 0) {
+    if (!autoCloseOther) {
+      return { success: false, error: '你有另一期正在进行中，先结束它才能重开本期' }
+    }
+    // 自动关掉其他 open 期。理论上只会有 1 条，做循环兼容历史脏数据。
+    await Promise.all(otherOpen.map(s =>
+      db.collection('snapshots').doc(s._id).update({
+        data: { status: 'closed', closedAt: Date.now() }
+      })
+    ))
+  }
+
+  await db.collection('snapshots').doc(snapshotId).update({
+    data: { status: 'open', closedAt: null }
+  })
+  invalidateSnapshotCache()
+  return { success: true, closedOtherCount: otherOpen.length }
+}
+
+// 级联删除快照：positions + reflections + snapshot 本身。
+// 只允许删自己 + 已 closed 的（防止误删活跃工作）。返回 { success, deletedPositions, deletedReflections }。
+async function deleteSnapshot(snapshotId) {
+  const { openid } = await ensureContext()
+
+  let target
+  try {
+    const res = await db.collection('snapshots').doc(snapshotId).get()
+    target = res.data
+  } catch (e) {
+    return { success: false, error: '快照不存在' }
+  }
+  if (!target) return { success: false, error: '快照不存在' }
+  if (target._openid !== openid) return { success: false, error: '只能删除自己的快照' }
+  if (target.status !== 'closed') return { success: false, error: '请先结束本期再删除' }
+
+  // 1. 删自己的 positions（小程序端 .get/.where().remove() 各有 20 条上限——分页拉、逐条删）
+  const myPositions = await _paginatedGet(
+    db.collection('positions').where({ snapshotId, _openid: openid })
+  )
+  await Promise.all(myPositions.map(p =>
+    db.collection('positions').doc(p._id).remove()
+  ))
+
+  // 2. 删自己的 reflection（一般只有 1 条）
+  const myRefs = await db.collection('reflections')
+    .where({ snapshotId, _openid: openid }).get()
+  await Promise.all(myRefs.data.map(r =>
+    db.collection('reflections').doc(r._id).remove()
+  ))
+
+  // 3. 删快照本身
+  await db.collection('snapshots').doc(snapshotId).remove()
+
+  invalidateSnapshotCache()
+  invalidatePositionsCache(snapshotId)
+  invalidateReflectionsCache(snapshotId)
+
+  return {
+    success: true,
+    deletedPositions: myPositions.length,
+    deletedReflections: myRefs.data.length
+  }
+}
+
 // ============== Position ==============
 
 async function getPositionsBySnapshot(snapshotId) {
@@ -471,7 +558,7 @@ module.exports = {
   // Rate
   getTodayRates, getRatesByDate, convertToCNY,
   // Snapshot
-  getCurrentSnapshot, getHistorySnapshots, createSnapshot, closeSnapshot,
+  getCurrentSnapshot, getHistorySnapshots, createSnapshot, closeSnapshot, reopenSnapshot, deleteSnapshot,
   invalidateSnapshotCache,
   getAllRoomSnapshots, getMyAllSnapshots, getActiveOrLatest, getOtherSnapshotInRange,
   computeSnapshotRange, getPairStatus, getPairStatusLabel,

@@ -16,6 +16,32 @@
   color: var(--text-primary);
 }
 
+/* 历史快照标题行：左边标题、右边编辑/删除按钮 */
+.snapshot__title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.snapshot__title-actions {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 6rpx;  /* 跟 title 的 baseline 对齐 */
+}
+.snapshot__title-action {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  padding: 8rpx 22rpx;
+  border: 1rpx solid var(--divider);
+  border-radius: 999rpx;
+  line-height: 1.5;
+}
+.snapshot__title-action--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.snapshot__title-action--hover { opacity: 0.5; }
+
 .snapshot__rule {
   height: 1rpx;
   background: var(--divider);
@@ -538,6 +564,7 @@
   padding: 32rpx 0;
   margin-top: 60rpx;
 }
+
 
 /* ============== 期数头 ============== */
 .period-header {

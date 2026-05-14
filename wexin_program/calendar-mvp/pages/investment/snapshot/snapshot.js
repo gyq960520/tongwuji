@@ -691,5 +691,62 @@ Page({
         }
       }
     })
+  },
+
+  // 历史快照标题右侧"编辑"按钮：重新开启本期，让它可编辑。
+  // 如果当前已有另一期 open，autoCloseOther 会先把它关掉（用户在 confirm 文案里被告知）。
+  onEditSnapshot() {
+    const snap = this.data.selectedSnapshot
+    if (!snap) return
+    const hasOther = this.data.hasOpenSnapshot
+    const content = hasOther
+      ? '重新开启会先结束当前进行中的本期，然后让这一期变成进行中。确定？'
+      : '本期会回到"进行中"，可以继续编辑持仓和复盘。'
+    wx.showModal({
+      title: '重新开启本期？',
+      content,
+      success: async (res) => {
+        if (!res.confirm) return
+        wx.showLoading({ title: '处理中', mask: true })
+        const result = await investment.reopenSnapshot(snap._id, { autoCloseOther: true })
+        wx.hideLoading()
+        if (!result.success) {
+          wx.showToast({ title: result.error || '操作失败', icon: 'none' })
+          return
+        }
+        await this.loadInitial()
+        wx.showToast({ title: '已重新开启', icon: 'success' })
+      }
+    })
+  },
+
+  // 历史快照标题右侧"删除"按钮：级联删除本期（持仓 + 复盘 + 快照）。
+  // confirm 文案带数据量提示，避免误删；confirmColor 红色突出破坏性。
+  async onDeleteSnapshot() {
+    const snap = this.data.selectedSnapshot
+    if (!snap) return
+    // 取数据量塞进 confirm 文案——getMyPositionsBySnapshot 走缓存，无网络往返
+    const positions = await investment.getMyPositionsBySnapshot(snap._id).catch(() => [])
+    const content = positions.length > 0
+      ? `本期含 ${positions.length} 条持仓 + 复盘，删除后无法恢复。`
+      : '本期暂无持仓数据，删除后无法恢复。'
+    wx.showModal({
+      title: '删除本期盘仓？',
+      content,
+      confirmText: '删除',
+      confirmColor: '#D9483B',
+      success: async (res) => {
+        if (!res.confirm) return
+        wx.showLoading({ title: '删除中', mask: true })
+        const result = await investment.deleteSnapshot(snap._id)
+        wx.hideLoading()
+        if (!result.success) {
+          wx.showToast({ title: result.error || '删除失败', icon: 'none' })
+          return
+        }
+        await this.loadInitial()
+        wx.showToast({ title: '已删除', icon: 'success' })
+      }
+    })
   }
 })

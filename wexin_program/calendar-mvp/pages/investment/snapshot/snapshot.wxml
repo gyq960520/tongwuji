@@ -20,10 +20,16 @@
       <text class="period-header__arrow">▾</text>
     </view>
 
-    <view class="snapshot__title">{{isReadonly ? '历史盘仓' : '本期盘仓'}}</view>
+    <view class="snapshot__title-row">
+      <text class="snapshot__title">{{isReadonly ? '历史盘仓' : '本期盘仓'}}</text>
+      <view wx:if="{{isReadonly}}" class="snapshot__title-actions">
+        <text class="snapshot__title-action" bindtap="onEditSnapshot" hover-class="snapshot__title-action--hover">编辑</text>
+        <text class="snapshot__title-action snapshot__title-action--danger" bindtap="onDeleteSnapshot" hover-class="snapshot__title-action--hover">删除</text>
+      </view>
+    </view>
     <view class="snapshot__rule"></view>
     <view class="snapshot__meta-row">
-      <text class="snapshot__meta">{{isReadonly ? '只读 · 历史快照' : '创建于 ' + createdLabel}}</text>
+      <text class="snapshot__meta">{{isReadonly ? '已存档 · 修改或删除请谨慎' : '创建于 ' + createdLabel}}</text>
     </view>
 
     <!-- 复盘（带 Tab） -->
@@ -286,6 +292,7 @@
     </view>
 
     <view wx:if="{{!isReadonly}}" class="snapshot__close-btn" bindtap="onCloseSnapshot">结束本期盘仓</view>
+    <!-- 历史快照 + 当前没有 open 时，仍提供"新建下一期"的正常路径（编辑入口已挪到标题行）-->
     <view wx:if="{{isReadonly && !hasOpenSnapshot}}" class="snapshot__primary-btn" bindtap="onCreateSnapshot" hover-class="snapshot__btn--hover">新建下一期盘仓</view>
   </view>
 
