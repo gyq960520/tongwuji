@@ -47,11 +47,13 @@ async function getCurrentRoomId() {
     return _roomId
   }
   // 没缓存就查云端：哪个 room 的 members 包含我
+  // orderBy createdAt asc：万一历史上同 openid 出现在多个 room 里（早期 createRoom 没去重）
+  // 永远稳定返回最早那个，避免不同设备/不同时机查询返回不同结果。
   const openid = await ensureOpenId()
   const db = wx.cloud.database()
   const res = await db.collection('rooms').where({
     members: db.command.in([openid])
-  }).get()
+  }).orderBy('createdAt', 'asc').get()
   if (res.data.length > 0) {
     _roomId = res.data[0]._id
     _inviteCode = res.data[0].inviteCode
@@ -64,6 +66,23 @@ async function getCurrentRoomId() {
 async function createRoom() {
   const openid = await ensureOpenId()
   const db = wx.cloud.database()
+  // 防重：用户已在某个 room.members 里 → 直接返回已有的，不重复建。
+  // 这是 onboarding 之外其他入口（双击、PC+手机各点一次）的兜底——onboarding 正常情况下
+  // 不应出现在已有 room 的用户面前。orderBy 与 getCurrentRoomId 保持一致。
+  //
+  // ⚠️ 已知漏洞（接受不修）：两台设备同一秒内同时点"创建" 仍可能 race —— "查 + 插" 不是原子，
+  // 两边都查到空 → 各自插入。云 DB 在 array 字段上没 unique 约束，要彻底防需要把 createRoom
+  // 挪到云函数 + transaction。情侣 app 极小概率场景，靠 auditRooms 事后兜底足够。
+  const existing = await db.collection('rooms').where({
+    members: db.command.in([openid])
+  }).orderBy('createdAt', 'asc').limit(1).get()
+  if (existing.data.length > 0) {
+    const r = existing.data[0]
+    _roomId = r._id
+    _inviteCode = r.inviteCode
+    wx.setStorageSync('roomId', _roomId)
+    return { roomId: _roomId, inviteCode: r.inviteCode, reused: true }
+  }
   const inviteCode = generateInviteCode()
   const data = {
     inviteCode,
