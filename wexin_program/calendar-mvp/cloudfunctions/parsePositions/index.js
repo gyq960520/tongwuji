@@ -208,11 +208,11 @@ Tab：持仓 / 期权 / 余额 / 挂单 / 影响透镜
 - 现金：shares = null
 
 【name 处理】
-- 普通股票：只用 ticker，如 "KO"、"VOO"、"VEA"、"BOXX"、"1810"、"QQQ"、"IBKR"
-- 不要在 name 里加中文翻译（"可口可乐" 等）
-- 不要加市场后缀（"NYSE" / "SEHK" 等）
+- **港股**（ticker 是 4 位数字，如 0700 / 1810 / 9988）：name 用屏幕上的中文名（如"小米集团"、"腾讯控股"），code 字段填 ticker（"1810"）。这样在持仓明细看的是公司名而不是冷冰冰的代码
+- **美股 / 美股 ETF**（ticker 是字母，如 KO / VOO / QQQ / NVDA）：name 用 ticker，code 留空
 - 期权：保留完整描述，如 "NVDA MAY 18 '26 195 Call"、"VOO MAY 15 '26 640 Put"
 - 现金：原样保留 "CNH 现金"、"USD 现金"
+- 不要加市场后缀（"NYSE" / "SEHK" 等）到 name 里
 
 【其他规则】
 1. "总计现金" 跳过（是合计）
@@ -239,7 +239,7 @@ Tab：持仓 / 期权 / 余额 / 挂单 / 影响透镜
   "positions": [
     {"name":"BOXX","code":"","category":"wealth","currency":"USD","shares":424.6147,"price":116.65,"amount":49532},
     {"name":"QQQ","code":"","category":"fund","currency":"USD","shares":31.6,"price":711.35,"amount":22479},
-    {"name":"1810","code":"","category":"stock","currency":"USD","shares":1600,"price":31.70,"amount":6500},
+    {"name":"小米集团","code":"1810","category":"stock","currency":"USD","shares":1600,"price":31.70,"amount":6500},
     {"name":"VOO","code":"","category":"fund","currency":"USD","shares":6.522,"price":677.19,"amount":4418},
     {"name":"KO","code":"","category":"stock","currency":"USD","shares":50,"price":78.43,"amount":3922},
     {"name":"VEA","code":"","category":"fund","currency":"USD","shares":50,"price":70.64,"amount":3535},

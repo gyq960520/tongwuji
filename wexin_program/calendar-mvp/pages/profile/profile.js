@@ -65,6 +65,10 @@ Page({
     wx.navigateTo({ url: '/pages/category-manage/category-manage' });
   },
 
+  onGoInvestmentConfig() {
+    wx.navigateTo({ url: '/pages/investment/config/config' });
+  },
+
   onClear() {
     wx.showModal({
       title: '清空所有数据？',

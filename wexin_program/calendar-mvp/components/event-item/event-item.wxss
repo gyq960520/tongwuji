@@ -51,3 +51,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 过去日期的事件整体降不透明度（不划横杠），让"今天和未来"在视觉上更醒目 */
+.event-item--past {
+  opacity: 0.45;
+}

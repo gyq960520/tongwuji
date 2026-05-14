@@ -71,6 +71,13 @@ const DEFAULT_EVENT_TYPE_ORDER = ['normal', 'holiday', 'date', 'birthday', 'anni
 // 单个房间最多自定义分类数（双方合计）
 const MAX_CUSTOM_CATEGORIES = 3
 
+// ===== 周期事件 =====
+
+// 周期事件支持的频率。null = 不重复。下标与 RECURRENCE_LABELS 平行用于 picker 显示。
+// 起始日期决定 day-of-month / month-of-year；起始日不存在的目标月会被跳过（如 1/31 → 2 月跳过、3/31 显示）。
+const RECURRENCE_FREQS = [null, 'monthly', 'quarterly', 'yearly']
+const RECURRENCE_LABELS = ['不重复', '每月', '每季度', '每年']
+
 // 自定义分类 sheet 的预设 emoji 候选，event-edit 和 category-manage 两处共用
 const PRESET_EMOJI_GROUPS = [
   { label: '庆祝', emojis: ['🎉', '🎊', '🥳', '🎁'] },
@@ -111,5 +118,7 @@ module.exports = {
   DEFAULT_EVENT_TYPE_ORDER,
   MAX_CUSTOM_CATEGORIES,
   PRESET_EMOJI_GROUPS,
+  RECURRENCE_FREQS,
+  RECURRENCE_LABELS,
   resolveEventType
 }

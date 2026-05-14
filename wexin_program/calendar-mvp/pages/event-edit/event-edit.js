@@ -1,6 +1,6 @@
 const { getEventById, addEvent, updateEvent, deleteEvent, getCategories, createCategory } = require('../../utils/store.js');
-const { todayStr, parseYMD } = require('../../utils/date.js');
-const { DEFAULT_EVENT_TYPES, DEFAULT_EVENT_TYPE_ORDER, MAX_CUSTOM_CATEGORIES, PRESET_EMOJI_GROUPS } = require('../../utils/config.js');
+const { todayStr, parseYMD, formatChineseDate } = require('../../utils/date.js');
+const { DEFAULT_EVENT_TYPES, DEFAULT_EVENT_TYPE_ORDER, MAX_CUSTOM_CATEGORIES, PRESET_EMOJI_GROUPS, RECURRENCE_FREQS, RECURRENCE_LABELS } = require('../../utils/config.js');
 
 const TYPE_OPTIONS = DEFAULT_EVENT_TYPE_ORDER.map(key => ({
   key,
@@ -8,10 +8,71 @@ const TYPE_OPTIONS = DEFAULT_EVENT_TYPE_ORDER.map(key => ({
   emoji: DEFAULT_EVENT_TYPES[key].emoji
 }));
 
+// 日期 picker 改用 multiSelector 4 列（年/月/日/星期），第 4 列自动跟随前 3 列。
+// 用 mode="date" 的话不能显示星期，所以这里手动 build 4 列。
+const PICKER_YEAR_START = 1950;
+const PICKER_YEAR_END = 2100;
+const PICKER_WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+
+function pickerDaysInMonth(year, month) {  // month 1-12
+  return new Date(year, month, 0).getDate();
+}
+
+function pickerWeekdayLabel(year, month, day) {
+  return '周' + PICKER_WEEKDAY[new Date(year, month - 1, day).getDay()];
+}
+
+function buildPickerYears() {
+  const arr = [];
+  for (let y = PICKER_YEAR_START; y <= PICKER_YEAR_END; y++) arr.push(y + '年');
+  return arr;
+}
+function buildPickerMonths() {
+  const arr = [];
+  for (let m = 1; m <= 12; m++) arr.push(m + '月');
+  return arr;
+}
+function buildPickerDays(year, month) {
+  const dim = pickerDaysInMonth(year, month);
+  const arr = [];
+  for (let d = 1; d <= dim; d++) arr.push(d + '日');
+  return arr;
+}
+// 第 4 列星期跟日列等长——每一行存对应那一天的"周 X"，这样滚动时 spinner 上下能看到邻近的星期，
+// 而不是只有选中那行有内容。
+function buildPickerWeekdays(year, month) {
+  const dim = pickerDaysInMonth(year, month);
+  const arr = [];
+  for (let d = 1; d <= dim; d++) arr.push(pickerWeekdayLabel(year, month, d));
+  return arr;
+}
+
+function buildPickerFromDateStr(dateStr) {
+  const d = parseYMD(dateStr || todayStr());
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  return {
+    range: [
+      buildPickerYears(),
+      buildPickerMonths(),
+      buildPickerDays(year, month),
+      buildPickerWeekdays(year, month)
+    ],
+    value: [
+      Math.max(0, year - PICKER_YEAR_START),
+      month - 1,
+      day - 1,
+      day - 1   // 星期列 index 与日列同步
+    ]
+  };
+}
+
+const _initialPickerData = buildPickerFromDateStr(todayStr());
+
 function formatDateLabel(dateStr) {
-  if (!dateStr) return '';
-  const d = parseYMD(dateStr);
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+  // 复用 date.js 的 formatChineseDate，自带" · 星期X"后缀，方便选日期时直接看到周几
+  return dateStr ? formatChineseDate(dateStr) : '';
 }
 
 Page({
@@ -27,6 +88,15 @@ Page({
     customCategories: [],
     canAddCustom: true,
     isEdit: false,
+    // 周期事件：picker 显示用 labels（平行数组），index 0 = 不重复
+    recurrenceLabels: RECURRENCE_LABELS,
+    recurrenceIndex: 0,
+    recurrenceUntil: '',   // '' 表示永不
+    // 共享/私有：默认 true，私有事件只有创建者可见可编辑
+    isShared: true,
+    // 日期 picker 4 列（年/月/日/星期）的 range & value，会根据 date 字段同步
+    pickerRange: _initialPickerData.range,
+    pickerValue: _initialPickerData.value,
     // 自定义分类 sheet 状态
     presetEmojiGroups: PRESET_EMOJI_GROUPS,
     showSheet: false,
@@ -40,7 +110,7 @@ Page({
     if (options && options.id) {
       const ev = await getEventById(options.id);
       if (ev) {
-        this.setData({
+        const patch = {
           id: ev.id,
           title: ev.title,
           type: ev.type,
@@ -49,15 +119,31 @@ Page({
           time: ev.time,
           note: ev.note,
           isEdit: true
-        });
+        };
+        if (ev.recurrence && ev.recurrence.freq) {
+          const idx = RECURRENCE_FREQS.indexOf(ev.recurrence.freq);
+          if (idx >= 0) {
+            patch.recurrenceIndex = idx;
+            patch.recurrenceUntil = ev.recurrence.until || '';
+          }
+        }
+        // isShared 字段：老事件没这字段，按共享处理（与 store.getEvents 的 filter 逻辑一致）
+        patch.isShared = ev.isShared !== false;
+        const pickerForEv = buildPickerFromDateStr(ev.date);
+        patch.pickerRange = pickerForEv.range;
+        patch.pickerValue = pickerForEv.value;
+        this.setData(patch);
         wx.setNavigationBarTitle({ title: '编辑事件' });
         return;
       }
     }
     const initialDate = (options && options.date) || todayStr();
+    const pickerForInit = buildPickerFromDateStr(initialDate);
     this.setData({
       date: initialDate,
-      dateLabel: formatDateLabel(initialDate)
+      dateLabel: formatDateLabel(initialDate),
+      pickerRange: pickerForInit.range,
+      pickerValue: pickerForInit.value
     });
   },
 
@@ -75,7 +161,37 @@ Page({
   },
 
   onTitleInput(e) { this.setData({ title: e.detail.value }); },
-  onSelectType(e) { this.setData({ type: e.currentTarget.dataset.key }); },
+
+  // 切到生日/纪念日时，如果"重复"还是不重复 → 自动改成"每年"（默认勾上但用户可改回）
+  onSelectType(e) {
+    const newType = e.currentTarget.dataset.key;
+    const oldType = this.data.type;
+    const becameAnnual = (newType === 'birthday' || newType === 'anniversary')
+                      && (oldType !== 'birthday' && oldType !== 'anniversary')
+                      && this.data.recurrenceIndex === 0;
+    const patch = { type: newType };
+    if (becameAnnual) patch.recurrenceIndex = 3; // 'yearly'
+    this.setData(patch);
+  },
+
+  onPickRecurrence(e) {
+    const idx = Number(e.detail.value);
+    const patch = { recurrenceIndex: idx };
+    // 切回"不重复"时清掉"结束于"，避免下次切回"每年"时残留旧的 until
+    if (idx === 0) patch.recurrenceUntil = '';
+    this.setData(patch);
+  },
+
+  onPickRecurrenceUntil(e) {
+    this.setData({ recurrenceUntil: e.detail.value });
+  },
+  onClearRecurrenceUntil() {
+    this.setData({ recurrenceUntil: '' });
+  },
+
+  onToggleShare(e) {
+    this.setData({ isShared: e.detail.value });
+  },
 
   // "+" 按钮：打开新建自定义分类 sheet
   onAddCustom() {
@@ -155,9 +271,45 @@ Page({
     }
   },
 
+  // 用户滚动 picker 任一列 → 重算"日"列范围（避免 2 月 30 日）+ 让第 4 列星期跟"日"列联动
+  // 第 3 列（星期）和第 2 列（日）双向同步：滚日 → 星期跟动；滚星期 → 日跟动（其实等价）
+  onPickDateColumnChange(e) {
+    const { column, value } = e.detail;
+    let [yi, mi, di] = this.data.pickerValue;
+    if (column === 0) yi = value;
+    else if (column === 1) mi = value;
+    else if (column === 2 || column === 3) di = value;
+
+    const year = yi + PICKER_YEAR_START;
+    const month = mi + 1;
+    const dim = pickerDaysInMonth(year, month);
+    if (di >= dim) di = dim - 1;  // 月份变短时把日 clamp 回最后一天
+
+    const newRange = this.data.pickerRange.slice();
+    newRange[2] = buildPickerDays(year, month);
+    newRange[3] = buildPickerWeekdays(year, month);
+    this.setData({
+      pickerRange: newRange,
+      pickerValue: [yi, mi, di, di]   // 星期 index = 日 index
+    });
+  },
+
+  // 用户点 "确定" → e.detail.value 是 4 列的最终 index 数组
   onPickDate(e) {
-    const date = e.detail.value;
-    this.setData({ date, dateLabel: formatDateLabel(date) });
+    const [yi, mi, di] = e.detail.value;
+    const year = yi + PICKER_YEAR_START;
+    const month = mi + 1;
+    const day = di + 1;
+    const pad = (n) => (n < 10 ? '0' + n : '' + n);
+    const date = `${year}-${pad(month)}-${pad(day)}`;
+    // 重建 picker 状态：把"用户取消时残留的滚动状态"覆盖成已确认的日期
+    const pickerForNew = buildPickerFromDateStr(date);
+    this.setData({
+      date,
+      dateLabel: formatDateLabel(date),
+      pickerRange: pickerForNew.range,
+      pickerValue: pickerForNew.value
+    });
   },
 
   onPickTime(e) { this.setData({ time: e.detail.value }); },
@@ -165,7 +317,7 @@ Page({
   onNoteInput(e) { this.setData({ note: e.detail.value }); },
 
   async onSave() {
-    const { title, type, date, time, note, id, isEdit } = this.data;
+    const { title, type, date, time, note, id, isEdit, recurrenceIndex, recurrenceUntil, isShared } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
       return;
@@ -174,10 +326,19 @@ Page({
       wx.showToast({ title: '请选择日期', icon: 'none' });
       return;
     }
-    const payload = { title: title.trim(), type, date, time, note };
-    if (isEdit) await updateEvent(id, payload);
-    else await addEvent(payload);
-    wx.navigateBack();
+    // 周期事件：不重复存 null（既覆盖新建的"不存字段"，也让 update 操作能清空旧记录的 recurrence）
+    const recurrence = recurrenceIndex > 0 ? {
+      freq: RECURRENCE_FREQS[recurrenceIndex],
+      until: recurrenceUntil || null
+    } : null;
+    const payload = { title: title.trim(), type, date, time, note, recurrence, isShared };
+    try {
+      if (isEdit) await updateEvent(id, payload);
+      else await addEvent(payload);
+      wx.navigateBack();
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' });
+    }
   },
 
   onDelete() {
@@ -187,8 +348,12 @@ Page({
       confirmColor: '#D9483B',
       success: async (res) => {
         if (res.confirm) {
-          await deleteEvent(this.data.id);
-          wx.navigateBack();
+          try {
+            await deleteEvent(this.data.id);
+            wx.navigateBack();
+          } catch (e) {
+            wx.showToast({ title: (e && e.message) || '删除失败', icon: 'none' });
+          }
         }
       }
     });

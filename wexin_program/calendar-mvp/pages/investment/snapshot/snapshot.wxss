@@ -153,6 +153,16 @@
   opacity: 0.5;
 }
 
+/* 当前 tab 总金额：放在 tabs-row 和 rateNotes / 饼图之间，放大加粗，整页第一眼看到的就是它
+   --fw-bold 项目里是 500（Apple 风格的"加粗"），这里走绝对 700 让金额更突出 */
+.snapshot__current-total {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 24rpx 0 16rpx;
+  letter-spacing: -0.5rpx;
+}
+
 /* 大类占比饼图 */
 .snapshot__chart {
   display: flex;
@@ -209,6 +219,10 @@
   flex: 1;
   padding-left: 28rpx;   /* 让位给 dot + 间距 */
 }
+.snapshot__legend-gap-h {
+  width: 50rpx;
+  margin-right: 6rpx;
+}
 .snapshot__legend-target-h {
   width: 70rpx;
   text-align: left;
@@ -243,6 +257,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+/* 超/低标签列：颜色走 inline style（红=超配、绿=低配），目标列左侧 */
+.snapshot__legend-gap {
+  width: 50rpx;
+  margin-right: 6rpx;
+  text-align: left;
+  font-size: var(--fs-xxs);
+  line-height: 1.3;
 }
 .snapshot__legend-target {
   width: 70rpx;
@@ -351,7 +373,7 @@
   text-align: center;
 }
 .snapshot__col-pct-h {
-  width: 90rpx;
+  width: 70rpx;
   text-align: right;
 }
 .snapshot__col-rmb-h {
@@ -383,7 +405,7 @@
   font-weight: var(--fw-bold);
 }
 .snapshot__cat-pct {
-  width: 90rpx;
+  width: 70rpx;
   text-align: right;
   font-size: var(--fs-sm);
   color: var(--text-primary);
@@ -420,7 +442,7 @@
   color: var(--text-tertiary);
 }
 .snapshot__pos-pct {
-  width: 90rpx;
+  width: 70rpx;
   text-align: right;
   font-size: var(--fs-sm);
   color: var(--text-secondary);

@@ -24,7 +24,6 @@
     <view class="snapshot__rule"></view>
     <view class="snapshot__meta-row">
       <text class="snapshot__meta">{{isReadonly ? '只读 · 历史快照' : '创建于 ' + createdLabel}}</text>
-      <view class="snapshot__config-link" bindtap="onGoConfig" hover-class="snapshot__config-link--hover">目标 & 账户设置 ›</view>
     </view>
 
     <!-- 复盘（带 Tab） -->
@@ -57,6 +56,7 @@
         <view class="snapshot__tab {{activeTab === 'mine' ? 'snapshot__tab--active' : ''}}" data-tab="mine" bindtap="onSwitchTab">我的持仓</view>
         <view class="snapshot__tab {{activeTab === 'other' ? 'snapshot__tab--active' : ''}}" data-tab="other" bindtap="onSwitchTab">TA 的持仓</view>
       </view>
+      <view wx:if="{{(activeTab === 'mine' ? myTotalDetail : otherTotalDetail)}}" class="snapshot__current-total tnum">¥{{activeTab === 'mine' ? myTotalDetail : otherTotalDetail}}</view>
       <view wx:for="{{rateNotes}}" wx:for-item="rn" wx:key="*this" class="snapshot__rate-note">{{rn}}</view>
 
       <!-- 我的 -->
@@ -74,6 +74,7 @@
           <view class="snapshot__legend">
             <view class="snapshot__legend-header">
               <text class="snapshot__legend-label-h"></text>
+              <text class="snapshot__legend-gap-h"></text>
               <text class="snapshot__legend-target-h">目标</text>
               <text class="snapshot__legend-actual-h">现状</text>
               <text class="snapshot__legend-amount-h">金额</text>
@@ -82,6 +83,7 @@
               <view class="snapshot__legend-item">
                 <view class="snapshot__legend-dot" style="background: {{item.color}};"></view>
                 <text class="snapshot__legend-label">{{item.label}}</text>
+                <text class="snapshot__legend-gap" style="color: {{item.gapColor}};">{{item.gapTag}}</text>
                 <text class="snapshot__legend-target tnum">{{item.targetInt}}</text>
                 <text class="snapshot__legend-percent tnum">{{item.percentInt}}</text>
                 <text class="snapshot__legend-amount tnum">{{item.amountChart}}</text>
@@ -138,7 +140,8 @@
               <view class="snapshot__col-header">
                 <text class="snapshot__col-name-h"></text>
                 <text wx:if="{{showOriginalCurrency}}" class="snapshot__col-cur-h">币种</text>
-                <text class="snapshot__col-pct-h">RMB%</text>
+                <text class="snapshot__col-pct-h">占总</text>
+                <text class="snapshot__col-pct-h">占户</text>
                 <text class="snapshot__col-rmb-h">{{showOriginalCurrency ? '原币价值' : 'RMB 金额'}}</text>
               </view>
 
@@ -148,6 +151,7 @@
                     <view class="snapshot__cat-dot" style="background: {{cg.color}};"></view>
                     <text class="snapshot__cat-name">{{cg.label}}</text>
                   </view>
+                  <text class="snapshot__cat-pct tnum">{{cg.percentTotalInt}}</text>
                   <text class="snapshot__cat-pct tnum">{{cg.percentInt}}</text>
                   <text class="snapshot__cat-sum tnum">¥{{cg.sumCnyDetail}}</text>
                 </view>
@@ -155,6 +159,7 @@
                   <view class="snapshot__pos">
                     <text class="snapshot__pos-name">{{p.name}}</text>
                     <text wx:if="{{showOriginalCurrency}}" class="snapshot__pos-cur">{{p.currency}}</text>
+                    <text class="snapshot__pos-pct tnum">{{p.percentTotalInt}}</text>
                     <text class="snapshot__pos-pct tnum">{{p.percentInt}}</text>
                     <text class="snapshot__pos-rmb tnum">{{showOriginalCurrency ? p.amountDetail : p.amountCnyDetail}}</text>
                   </view>
@@ -184,10 +189,19 @@
             </block>
           </view>
           <view class="snapshot__legend">
+            <view class="snapshot__legend-header">
+              <text class="snapshot__legend-label-h"></text>
+              <text class="snapshot__legend-gap-h"></text>
+              <text class="snapshot__legend-target-h">目标</text>
+              <text class="snapshot__legend-actual-h">现状</text>
+              <text class="snapshot__legend-amount-h">金额</text>
+            </view>
             <block wx:for="{{otherPieSegments}}" wx:key="key">
               <view class="snapshot__legend-item">
                 <view class="snapshot__legend-dot" style="background: {{item.color}};"></view>
                 <text class="snapshot__legend-label">{{item.label}}</text>
+                <text class="snapshot__legend-gap" style="color: {{item.gapColor}};">{{item.gapTag}}</text>
+                <text class="snapshot__legend-target tnum">{{item.targetInt}}</text>
                 <text class="snapshot__legend-percent tnum">{{item.percentInt}}</text>
                 <text class="snapshot__legend-amount tnum">{{item.amountChart}}</text>
               </view>
@@ -212,8 +226,8 @@
           </view>
         </view>
 
-        <!-- 持仓明细标题 + 切换原币种按钮（仅在有持仓时才显示标题） -->
-        <view wx:if="{{otherAccountsWithPositions.length > 0}}" class="snapshot__detail-header">
+        <!-- 持仓明细标题 + 切换原币种按钮（始终显示，跟"我的"tab 一致） -->
+        <view class="snapshot__detail-header">
           <text class="snapshot__detail-title">持仓明细</text>
           <view class="snapshot__detail-toggle" bindtap="onToggleCurrencyView" hover-class="snapshot__detail-toggle--hover">
             {{showOriginalCurrency ? '看 RMB' : '切换原币种'}}
@@ -221,7 +235,7 @@
         </view>
 
         <!-- 深色分隔线 -->
-        <view wx:if="{{otherAccountsWithPositions.length > 0}}" class="snapshot__section-rule"></view>
+        <view class="snapshot__section-rule"></view>
 
         <view wx:if="{{otherAccountsWithPositions.length === 0}}" class="snapshot__empty">
           TA 还没有录入持仓
@@ -240,7 +254,8 @@
               <view class="snapshot__col-header">
                 <text class="snapshot__col-name-h"></text>
                 <text wx:if="{{showOriginalCurrency}}" class="snapshot__col-cur-h">币种</text>
-                <text class="snapshot__col-pct-h">RMB%</text>
+                <text class="snapshot__col-pct-h">占总</text>
+                <text class="snapshot__col-pct-h">占户</text>
                 <text class="snapshot__col-rmb-h">{{showOriginalCurrency ? '原币价值' : 'RMB 金额'}}</text>
               </view>
 
@@ -250,6 +265,7 @@
                     <view class="snapshot__cat-dot" style="background: {{cg.color}};"></view>
                     <text class="snapshot__cat-name">{{cg.label}}</text>
                   </view>
+                  <text class="snapshot__cat-pct tnum">{{cg.percentTotalInt}}</text>
                   <text class="snapshot__cat-pct tnum">{{cg.percentInt}}</text>
                   <text class="snapshot__cat-sum tnum">¥{{cg.sumCnyDetail}}</text>
                 </view>
@@ -257,6 +273,7 @@
                   <view class="snapshot__pos">
                     <text class="snapshot__pos-name">{{p.name}}</text>
                     <text wx:if="{{showOriginalCurrency}}" class="snapshot__pos-cur">{{p.currency}}</text>
+                    <text class="snapshot__pos-pct tnum">{{p.percentTotalInt}}</text>
                     <text class="snapshot__pos-pct tnum">{{p.percentInt}}</text>
                     <text class="snapshot__pos-rmb tnum">{{showOriginalCurrency ? p.amountDetail : p.amountCnyDetail}}</text>
                   </view>
