@@ -178,12 +178,14 @@ function convertToCNY(amount, currency, ratesRecord, accountOverride) {
 
 // ============== Snapshot ==============
 
-// 当前打开的快照（每个 room 同时最多一个 status=open）
+// 当前用户自己 open 的快照（按 _openid 过滤，避免拿到对方的）。
+// 之前漏了 _openid 条件 → config 页可能读到对方 snapshot，targets 写到错的 storage key，
+// 导致改完目标占比 snapshot 页读不到，饼图"目标"列不联动。
 async function getCurrentSnapshot() {
   if (_currentSnapshotCache) return _currentSnapshotCache
-  const { roomId } = await ensureContext()
+  const { roomId, openid } = await ensureContext()
   const res = await db.collection('snapshots')
-    .where({ roomId, status: 'open' })
+    .where({ roomId, status: 'open', _openid: openid })
     .orderBy('createdAt', 'desc')
     .limit(1)
     .get()
