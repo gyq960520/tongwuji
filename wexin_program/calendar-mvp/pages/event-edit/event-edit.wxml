@@ -38,7 +38,11 @@
     </view>
   </view>
 
-  <picker mode="date" value="{{date}}" bindchange="onPickDate">
+  <picker mode="multiSelector"
+          range="{{pickerRange}}"
+          value="{{pickerValue}}"
+          bindcolumnchange="onPickDateColumnChange"
+          bindchange="onPickDate">
     <view class="edit__row edit__row--picker">
       <text class="edit__label text-secondary">日期</text>
       <text class="edit__value tnum">{{dateLabel || '请选择'}} ›</text>
