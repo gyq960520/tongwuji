@@ -33,6 +33,7 @@ Page({
     myPieSegments: [],
     myPieGradient: '',
     myTotalChart: '',
+    myTotalDetail: '',
     myPieLabels: [],
     myAccountsWithPositions: [],
 
@@ -40,6 +41,7 @@ Page({
     otherPieSegments: [],
     otherPieGradient: '',
     otherTotalChart: '',
+    otherTotalDetail: '',
     otherPieLabels: [],
     otherAccountsWithPositions: [],
 
@@ -80,10 +82,6 @@ Page({
       this.getTabBar().setData({ selected: 2 })  // tabBar 第 3 个 = 持仓
     }
     await this.loadInitial()
-  },
-
-  onGoConfig() {
-    wx.navigateTo({ url: '/pages/investment/config/config' })
   },
 
   // 进入页面或新建/关闭后调用：优先选 open 快照，否则选最新一条历史快照
@@ -169,7 +167,7 @@ Page({
     const myByCat = this._aggregateByCategory(myPositions, accountsById, rates, accountRateOverrides)
     const myKeys = Object.keys(myByCat).sort((a, b) => myByCat[b] - myByCat[a])
 
-    const targetEdits = this._loadOrResetTargets(mySnap._id)
+    const targetEdits = this._loadOrResetTargets()
 
     const myPie = this._buildPieData(myByCat, myKeys, targetEdits)
 
@@ -214,10 +212,12 @@ Page({
       myPieSegments: myPie.segments,
       myPieGradient: myPie.gradient,
       myTotalChart: myPie.totalChart,
+      myTotalDetail: myPie.totalDetail,
       myPieLabels: myPie.labels,
       otherPieSegments: otherPie.segments,
       otherPieGradient: otherPie.gradient,
       otherTotalChart: otherPie.totalChart,
+      otherTotalDetail: otherPie.totalDetail,
       otherPieLabels: otherPie.labels,
       myCurrencySegments: myCurBar.segments,
       myCurrencyGradient: myCurBar.gradient,
@@ -342,6 +342,20 @@ Page({
         currencyLabel: this.data.currencyLabel[acc.currency] || acc.currency
       })
     }
+
+    // 第二轮：算 grandTotal（跨所有账户合计），给每个分类小计和持仓加"占总账户 %"
+    // 跟"占本账户 %"是平行两列，明细页同时显示
+    const grandTotal = result.reduce((s, a) => s + (a.sumAmountCny || 0), 0)
+    result.forEach(a => {
+      a.categoryGroups.forEach(cg => {
+        const cgPct = grandTotal > 0 ? (cg.sumCny / grandTotal * 100) : 0
+        cg.percentTotalInt = fmtPercentInt(cgPct)
+        cg.positions.forEach(p => {
+          const pPct = grandTotal > 0 ? ((p.amountCny || 0) / grandTotal * 100) : 0
+          p.percentTotalInt = fmtPercentInt(pPct)
+        })
+      })
+    })
     return result
   },
 
@@ -419,13 +433,14 @@ Page({
     return byCat
   },
 
-  // 加载本快照的目标占比。统一在全 7 大类（POSITION_CATEGORIES）上维护，sum=100。
+  // 加载全局目标占比（不再按 snapshotId 分，所有期数共用一份）。
+  // 全 7 大类（POSITION_CATEGORIES）维护，sum=100。
   // 如果存储里 key 不全 / 总和 ≠ 100，重置为全 7 大类平分。
-  _loadOrResetTargets(snapshotId) {
+  _loadOrResetTargets() {
     const allKeys = POSITION_CATEGORIES.map(c => c.key)
     let stored = {}
     try {
-      stored = wx.getStorageSync(`targets_${snapshotId}`) || {}
+      stored = wx.getStorageSync('targets_global') || {}
     } catch (e) { stored = {} }
 
     const hasAll = allKeys.every(k => typeof stored[k] === 'number')
@@ -437,7 +452,7 @@ Page({
     const defaults = equalSplit100(allKeys.length)
     const result = {}
     allKeys.forEach((k, i) => { result[k] = defaults[i] })
-    try { wx.setStorageSync(`targets_${snapshotId}`, result) } catch (e) {}
+    try { wx.setStorageSync('targets_global', result) } catch (e) {}
     return result
   },
 
@@ -470,10 +485,30 @@ Page({
     arr.forEach((seg, i) => { seg.percentInt = intPercents[i] + '%' })
 
     // 目标：targetMap 已保证 sum = 100；若 null（如 TA 的）则置空
+    // 同时算"超配/低配"标签：actual − target > 3 → 超配（红）、< −3 → 低配（绿）、否则空
+    // gapTag 走 inline 颜色，TA 在 targetMap=null 时直接空
     if (targetMap) {
-      arr.forEach(seg => { seg.targetInt = (targetMap[seg.key] || 0) + '%' })
+      arr.forEach((seg, i) => {
+        const targetVal = Number(targetMap[seg.key]) || 0
+        seg.targetInt = targetVal + '%'
+        const gap = intPercents[i] - targetVal
+        if (gap > 3) {
+          seg.gapTag = '(超)'
+          seg.gapColor = '#D9483B'
+        } else if (gap < -3) {
+          seg.gapTag = '(低)'
+          seg.gapColor = '#2E9C5E'
+        } else {
+          seg.gapTag = ''
+          seg.gapColor = ''
+        }
+      })
     } else {
-      arr.forEach(seg => { seg.targetInt = '' })
+      arr.forEach(seg => {
+        seg.targetInt = ''
+        seg.gapTag = ''
+        seg.gapColor = ''
+      })
     }
 
     // 扇区标签：只标 ≥ 8% 的，按扇区中点角度沿环中线半径摆放
@@ -503,6 +538,7 @@ Page({
       segments: arr,
       gradient: `conic-gradient(${stops.join(', ')})`,
       totalChart: fmtMoneyChart(total),
+      totalDetail: fmtMoneyDetail(total),
       labels
     }
   },
