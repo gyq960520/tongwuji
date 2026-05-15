@@ -1,6 +1,28 @@
 // 业务配置集中地。颜色/字号等设计 token 在 app.wxss；这里放业务枚举和阈值。
 // 加新类型、改券商列表、改主货币都改这一个文件。
 
+// ===== 微信订阅消息 =====
+// 用于"事件提醒"。一次性模板：编号 571 / 类目 备忘录 / 标题 日程提醒
+// 字段：thing2 = 提醒内容（≤20 字符），date4 = 日程时间（YYYY年MM月DD日）
+// 申请位置：mp.weixin.qq.com → 订阅消息 → 公共模板库 → 一次性 → 日程提醒
+const SUBSCRIBE_TEMPLATE_ID = 'g-1aXCOtH_x20vxBmeH58Cs9hk0cGb_GjrHoB0PG3x0'
+
+// 提醒选项。两种语义混合：
+//   kind='before-minutes' n=N → 事件时间往前推 N 分钟（事件无时间则相对当天 9:00 算）
+//   kind='days-before-9am' n=N → (事件日期 − N 天) 当天 9:00（固定时间点，与事件时间无关）
+// kind=null 表示"不提醒"
+// 选项顺序按时间精度递增："越近"在前
+const REMINDER_OPTIONS = [
+  { kind: null,               n: 0,   label: '不提醒' },
+  { kind: 'before-minutes',   n: 30,  label: '提前 30 分钟' },
+  { kind: 'before-minutes',   n: 60,  label: '提前 1 小时' },
+  { kind: 'before-minutes',   n: 120, label: '提前 2 小时' },
+  { kind: 'before-minutes',   n: 240, label: '提前 4 小时' },
+  { kind: 'days-before-9am',  n: 1,   label: '提前 1 天 9 点' },
+  { kind: 'days-before-9am',  n: 3,   label: '提前 3 天 9 点' },
+  { kind: 'days-before-9am',  n: 7,   label: '提前 1 周 9 点' }
+]
+
 // ===== 全局品牌色系 =====
 // 整个 app 的彩色元素（投资饼图大类 / 事件分类 dot / 未来其他模块）共用这一套色系，
 // 按 index 顺序递延使用。避免不同模块各用一套色卡造成视觉割裂。
@@ -120,5 +142,7 @@ module.exports = {
   PRESET_EMOJI_GROUPS,
   RECURRENCE_FREQS,
   RECURRENCE_LABELS,
-  resolveEventType
+  resolveEventType,
+  SUBSCRIBE_TEMPLATE_ID,
+  REMINDER_OPTIONS
 }

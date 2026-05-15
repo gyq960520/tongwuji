@@ -43,10 +43,30 @@ async function getCurrentRoomId() {
   if (_roomId) return _roomId
   const cached = wx.getStorageSync('roomId')
   if (cached) {
-    _roomId = cached
-    return _roomId
+    // 防御：cached 可能指向已被管理员清理 / 朋友手动删除的 room（脏数据场景）。
+    // 不验证就直接信任会让用户卡在"幽灵房间"——能进 timeline 但查啥都空、邀请码读不出来。
+    // 校验云端 doc 还在：
+    //   - 存在 → 顺手刷新 inviteCode cache，正常返回
+    //   - 不存在 / 读失败 → 清掉本地 cache，fallthrough 走云端 in 查询兜底
+    const db = wx.cloud.database()
+    let valid = null
+    try {
+      const doc = await db.collection('rooms').doc(cached).get()
+      if (doc && doc.data) valid = doc.data
+    } catch (e) {
+      console.warn('[getCurrentRoomId] cached roomId 校验失败，清缓存:', cached, e && e.errMsg)
+    }
+    if (valid) {
+      _roomId = valid._id || cached
+      _inviteCode = valid.inviteCode || null
+      return _roomId
+    }
+    wx.removeStorageSync('roomId')
+    _roomId = null
+    _inviteCode = null
+    // 继续往下走云端 in 查询，看这个 openid 是不是真还在某个 room 里
   }
-  // 没缓存就查云端：哪个 room 的 members 包含我
+  // 没缓存（或 cache 校验失败）就查云端：哪个 room 的 members 包含我
   // orderBy createdAt asc：万一历史上同 openid 出现在多个 room 里（早期 createRoom 没去重）
   // 永远稳定返回最早那个，避免不同设备/不同时机查询返回不同结果。
   const openid = await ensureOpenId()
@@ -239,6 +259,10 @@ async function addEvent(event) {
       freq: event.recurrence.freq,
       until: event.recurrence.until || null
     } : null,
+    // 微信订阅消息提醒：{ daysBefore: N } 或 null。仅存配置，发送配额由 reminderQueue 管
+    reminder: (event.reminder && typeof event.reminder.daysBefore === 'number') ? {
+      daysBefore: event.reminder.daysBefore
+    } : null,
     createdAt: now,
     updatedAt: now
   }
@@ -247,6 +271,37 @@ async function addEvent(event) {
   data.id = res._id
   _eventsCache = null
   return data
+}
+
+// ---------- 微信订阅消息提醒队列 ----------
+
+// 写一条待发送的提醒记录。upsert 语义：同一 eventId 已有记录就删了再写新的，
+// 避免编辑事件后留下两条排队记录。
+async function upsertReminderQueue(record) {
+  const db = wx.cloud.database()
+  // 先删旧记录（同一 eventId）
+  await deleteReminderQueue(record.eventId)
+  return db.collection('reminderQueue').add({
+    data: {
+      eventId: record.eventId,
+      sendAt: record.sendAt,
+      templateId: record.templateId,
+      eventTitle: record.eventTitle,
+      eventDate: record.eventDate,
+      eventTime: record.eventTime || '',
+      sent: false,
+      createdAt: Date.now()
+    }
+    // _openid 由云开发自动填充
+  })
+}
+
+async function deleteReminderQueue(eventId) {
+  const db = wx.cloud.database()
+  const res = await db.collection('reminderQueue').where({ eventId }).get()
+  for (const r of res.data) {
+    await db.collection('reminderQueue').doc(r._id).remove()
+  }
 }
 
 // 走 manageEvent 云函数代理：admin SDK 跑 update，绕开"仅创建者可写"权限，
@@ -398,6 +453,8 @@ module.exports = {
   getEventsByDate,
   getEventsInRange,
   watchRoomEvents,
+  upsertReminderQueue,
+  deleteReminderQueue,
   // 设置
   getSettings,
   updateSettings,
