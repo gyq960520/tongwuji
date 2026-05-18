@@ -49,27 +49,7 @@ function buildPickerWeekdays(year, month) {
   return arr;
 }
 
-// 提醒发送时间：根据 reminder.kind 决定语义。返回 UTC 毫秒（cron 端也是 UTC 比较，可比）。
-//   before-minutes：参考点是 (date + time) 或当天 9:00（无 time 时）→ 减 n 分钟
-//   days-before-9am：参考点是 date 当天 9:00 → 减 n 天
-function computeReminderSendAt(dateStr, timeStr, reminder) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  if (reminder.kind === 'before-minutes') {
-    // 参考点：事件时间 → BJ → UTC（BJ = UTC+8，所以小时减 8）
-    let refUtc;
-    if (timeStr && /^\d{2}:\d{2}$/.test(timeStr)) {
-      const [hh, mm] = timeStr.split(':').map(Number);
-      refUtc = Date.UTC(y, m - 1, d, hh - 8, mm, 0);
-    } else {
-      // 全天事件兜底：当天 9:00 BJ = 01:00 UTC
-      refUtc = Date.UTC(y, m - 1, d, 1, 0, 0);
-    }
-    return refUtc - reminder.n * 60 * 1000;
-  }
-  // days-before-9am：9:00 BJ = 01:00 UTC
-  const dayUtc = Date.UTC(y, m - 1, d, 1, 0, 0);
-  return dayUtc - reminder.n * 24 * 60 * 60 * 1000;
-}
+const { computeReminderSendAt, nextReminderSendAt } = require('../../utils/reminder.js');
 
 function buildPickerFromDateStr(dateStr) {
   const d = parseYMD(dateStr || todayStr());
@@ -371,6 +351,12 @@ Page({
   //   3) 如果需要提醒 → 第一个 await 就是 requestSubscribeMessage（gesture 仍有效）
   //   4) 然后才 await 保存事件 + 写队列
   async onSave() {
+    // 防重入：用户在 requestSubscribeMessage 弹框或 addEvent 等待期间再点保存
+    // 会导致两次 addEvent 并发执行 → 数据库出现两条同样的事件。
+    // instance flag + try/finally 兜底所有路径（含 early-return / 异常）。
+    if (this._saving) return;
+    this._saving = true;
+    try {
     const { title, type, date, time, note, id, isEdit, recurrenceIndex, recurrenceUntil, isShared, reminderIndex } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
@@ -388,18 +374,27 @@ Page({
     const reminderOpt = REMINDER_OPTIONS[reminderIndex];
     const reminder = (reminderOpt && reminderOpt.kind) ? { kind: reminderOpt.kind, n: reminderOpt.n } : null;
 
-    // 周期事件 + 提醒：MVP 不支持。
-    if (recurrence && reminder) {
-      wx.showToast({ title: '周期事件暂不支持微信提醒', icon: 'none', duration: 2500 });
-      return;
-    }
-
     // ===== 第一阶段：必要时弹微信订阅授权，必须在所有 await 之前 =====
+    // 周期事件：算"未来下一次 occurrence"的 sendAt（一张票对应一次推送，每月需用户在 banner 续）
+    // 一次性事件：直接 date+time → sendAt
+    // effective* 是写入 queue 时实际用到的"该次推送对应的事件日期/时间"——对周期事件来说
+    // 是下一次 occurrence 而非起始日期，否则推送通知里显示的是起始日不是下次还款日。
     let subscribeResult = null;
     let sendAt = null;
+    let effectiveDate = date;
+    let effectiveTime = time;
     if (reminder) {
-      sendAt = computeReminderSendAt(date, time, reminder);
-      if (sendAt > Date.now()) {
+      if (recurrence) {
+        const next = nextReminderSendAt({ date, time, recurrence, reminder }, todayStr());
+        if (next) {
+          sendAt = next.sendAt;
+          effectiveDate = next.occurDate;
+          effectiveTime = next.occurTime;
+        }
+      } else {
+        sendAt = computeReminderSendAt(date, time, reminder);
+      }
+      if (sendAt && sendAt > Date.now()) {
         // tap 手势还在 ——— 直接 await 这个 Promise，是允许的第一个 async
         try {
           subscribeResult = await new Promise((resolve, reject) => {
@@ -429,7 +424,8 @@ Page({
       }
 
       if (reminder) {
-        if (sendAt <= Date.now()) {
+        if (!sendAt || sendAt <= Date.now()) {
+          // 周期事件已过 until 或一次性事件时间已过
           wx.showToast({ title: '提醒时间已过，事件已保存', icon: 'none', duration: 2500 });
         } else if (subscribeResult && subscribeResult[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
           await upsertReminderQueue({
@@ -437,8 +433,8 @@ Page({
             sendAt,
             templateId: SUBSCRIBE_TEMPLATE_ID,
             eventTitle: payload.title,
-            eventDate: payload.date,
-            eventTime: payload.time || ''
+            eventDate: effectiveDate,
+            eventTime: effectiveTime || ''
           });
         } else {
           // 用户在第一阶段拒绝授权 / 调用失败
@@ -452,6 +448,9 @@ Page({
       wx.navigateBack();
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' });
+    }
+    } finally {
+      this._saving = false;
     }
   },
 

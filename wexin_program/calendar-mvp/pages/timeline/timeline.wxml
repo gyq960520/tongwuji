@@ -1,6 +1,36 @@
 <view class="page timeline">
   <view class="timeline__top tnum">{{todayLabel}}</view>
 
+  <!-- 周期事件续订提示：每月一次的"续命"动作（一次性模板每次发送都要消耗一张授权票） -->
+  <view wx:if="{{renewList.length > 0}}" class="timeline__renew">
+    <block wx:if="{{renewList.length <= 3 || renewExpanded}}">
+      <view wx:if="{{renewList.length > 1}}" class="timeline__renew-summary">下次提醒未开启</view>
+      <block wx:for="{{renewList}}" wx:key="eventId">
+        <view class="timeline__renew-row">
+          <view class="timeline__renew-row-main">
+            <text class="timeline__renew-emoji">{{item.emoji}}</text>
+            <view class="timeline__renew-text">
+              <view class="timeline__renew-title">{{item.title}}</view>
+              <view class="timeline__renew-sub tnum">下次 {{item.nextLabel}}</view>
+            </view>
+          </view>
+          <view class="timeline__renew-btn" catchtap="onTapRenew" data-item="{{item}}" hover-class="timeline__renew-btn--hover">续订</view>
+        </view>
+      </block>
+      <view wx:if="{{renewList.length > 3}}" class="timeline__renew-toggle" bindtap="onToggleRenewExpand">收起</view>
+    </block>
+    <view wx:else class="timeline__renew-row timeline__renew-row--collapsed" bindtap="onToggleRenewExpand">
+      <view class="timeline__renew-row-main">
+        <text class="timeline__renew-emoji">⚠️</text>
+        <view class="timeline__renew-text">
+          <view class="timeline__renew-title">{{renewList.length}} 个周期提醒未开启</view>
+          <view class="timeline__renew-sub">点击展开续订</view>
+        </view>
+      </view>
+      <view class="timeline__renew-toggle">展开 ›</view>
+    </view>
+  </view>
+
   <!-- 今天 -->
   <view class="timeline__section">
     <view class="timeline__section-title">今天</view>

@@ -8,6 +8,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const _ = db.command
 
 exports.main = async (event, context) => {
   const { action } = event
@@ -54,7 +55,19 @@ async function update({ id, patch }, openid) {
   delete safePatch._openid
   delete safePatch.roomId
   delete safePatch.createdAt
+  // optOuts 也不允许直接 patch（用户级状态必须走 manageReminder.optOut/renew 维护）
+  delete safePatch.reminderOptOuts
   safePatch.updatedAt = Date.now()
+
+  // 自动恢复 caller 自己的 opt-out：用户在编辑页把 reminder picker 改回有效值并保存，
+  // 视为"我又想接收这个事件的提醒了"。caller 从 reminderOptOuts 数组移除。
+  // 注意：只在 patch 明确给了 reminder 字段（非 null）且 caller 当前在 optOuts 列表里时才动。
+  if (patch.reminder && patch.reminder.kind) {
+    const optOuts = evRes.data.reminderOptOuts || []
+    if (optOuts.includes(openid)) {
+      safePatch.reminderOptOuts = _.pull(openid)
+    }
+  }
 
   await db.collection('events').doc(id).update({ data: safePatch })
   return { success: true }

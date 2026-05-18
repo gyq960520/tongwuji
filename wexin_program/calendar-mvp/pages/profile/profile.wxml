@@ -35,6 +35,11 @@
       <text class="profile__row-value text-tertiary">›</text>
     </view>
     <view class="profile__row-rule"></view>
+    <view class="profile__row" bindtap="onTapSubscribeRow" hover-class="profile__row--hover">
+      <text class="profile__row-label">事件提醒</text>
+      <text class="profile__row-value text-tertiary">{{subscribeStatusLabel}} ›</text>
+    </view>
+    <view class="profile__row-rule"></view>
     <view class="profile__row" bindtap="onClear" hover-class="profile__row--hover">
       <text class="profile__row-danger">清空所有数据</text>
     </view>

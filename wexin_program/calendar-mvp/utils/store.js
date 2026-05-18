@@ -259,9 +259,10 @@ async function addEvent(event) {
       freq: event.recurrence.freq,
       until: event.recurrence.until || null
     } : null,
-    // 微信订阅消息提醒：{ daysBefore: N } 或 null。仅存配置，发送配额由 reminderQueue 管
-    reminder: (event.reminder && typeof event.reminder.daysBefore === 'number') ? {
-      daysBefore: event.reminder.daysBefore
+    // 微信订阅消息提醒：{ kind, n } 或 null。仅存配置，发送配额由 reminderQueue 管
+    reminder: (event.reminder && event.reminder.kind) ? {
+      kind: event.reminder.kind,
+      n: event.reminder.n
     } : null,
     createdAt: now,
     updatedAt: now
@@ -275,33 +276,90 @@ async function addEvent(event) {
 
 // ---------- 微信订阅消息提醒队列 ----------
 
-// 写一条待发送的提醒记录。upsert 语义：同一 eventId 已有记录就删了再写新的，
-// 避免编辑事件后留下两条排队记录。
+// 写/删都走 manageReminder 云函数（admin SDK 代理）。
+// 为什么不直写 db：reminderQueue 默认权限"仅创建者可读写"，共享事件需要双推送 →
+// 两条记录的 touser 一个是自己一个是对方；跨用户编辑时也要能动对方写的旧记录。
+// 客户端直写时 where({eventId}) 会被权限过滤掉对方那条，留下重复记录。
+// 云函数侧用 admin SDK + 显式权限校验（私有→仅创建者；共享→room.members）规避。
+
 async function upsertReminderQueue(record) {
-  const db = wx.cloud.database()
-  // 先删旧记录（同一 eventId）
-  await deleteReminderQueue(record.eventId)
-  return db.collection('reminderQueue').add({
+  const res = await wx.cloud.callFunction({
+    name: 'manageReminder',
     data: {
+      action: 'upsert',
       eventId: record.eventId,
       sendAt: record.sendAt,
       templateId: record.templateId,
       eventTitle: record.eventTitle,
       eventDate: record.eventDate,
-      eventTime: record.eventTime || '',
-      sent: false,
-      createdAt: Date.now()
+      eventTime: record.eventTime || ''
+      // isShared / roomId / tousers 由云函数从 events 表自查，调用方不用传
     }
-    // _openid 由云开发自动填充
   })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '写提醒队列失败')
+  }
+  return res.result
 }
 
 async function deleteReminderQueue(eventId) {
-  const db = wx.cloud.database()
-  const res = await db.collection('reminderQueue').where({ eventId }).get()
-  for (const r of res.data) {
-    await db.collection('reminderQueue').doc(r._id).remove()
+  const res = await wx.cloud.callFunction({
+    name: 'manageReminder',
+    data: { action: 'delete', eventId }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '删提醒队列失败')
   }
+  return res.result
+}
+
+// 续订：仅为 caller 自己写下一条 queue（不影响对方）。
+// 用于 timeline banner 上的 [续订] 按钮，每次只续一次（一次 tap = 一张票）。
+async function renewReminderQueue(record) {
+  const res = await wx.cloud.callFunction({
+    name: 'manageReminder',
+    data: {
+      action: 'renew',
+      eventId: record.eventId,
+      sendAt: record.sendAt,
+      templateId: record.templateId,
+      eventTitle: record.eventTitle,
+      eventDate: record.eventDate,
+      eventTime: record.eventTime || ''
+    }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '续订失败')
+  }
+  return res.result
+}
+
+// 查 caller 自己待发的 queue 记录的 eventId 集合（用于 timeline banner 扫描）。
+// 走云函数是因为客户端权限只能读 _openid=自己的记录，而 queue 写入者不一定是查询者。
+async function listMyPendingReminderEventIds() {
+  const res = await wx.cloud.callFunction({
+    name: 'manageReminder',
+    data: { action: 'listMyPending' }
+  })
+  if (!res.result || !res.result.success) {
+    console.warn('[listMyPending] 失败', res.result)
+    return []
+  }
+  return res.result.pendingEventIds || []
+}
+
+// 退订：caller 主动放弃接收该事件提醒。把自己加入 events.reminderOptOuts +
+// 清掉自己待发的 queue 记录。在 banner 续订被微信拒（reject/ban/fail）时调。
+async function optOutReminder(eventId) {
+  const res = await wx.cloud.callFunction({
+    name: 'manageReminder',
+    data: { action: 'optOut', eventId }
+  })
+  if (!res.result || !res.result.success) {
+    throw new Error((res.result && res.result.error) || '退订失败')
+  }
+  _eventsCache = null  // events.reminderOptOuts 变了
+  return res.result
 }
 
 // 走 manageEvent 云函数代理：admin SDK 跑 update，绕开"仅创建者可写"权限，
@@ -455,6 +513,10 @@ module.exports = {
   watchRoomEvents,
   upsertReminderQueue,
   deleteReminderQueue,
+  renewReminderQueue,
+  optOutReminder,
+  listMyPendingReminderEventIds,
+  ensureOpenId,
   // 设置
   getSettings,
   updateSettings,

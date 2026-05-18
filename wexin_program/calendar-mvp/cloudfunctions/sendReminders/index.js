@@ -51,8 +51,10 @@ exports.main = async (event, context) => {
           return
         }
 
+        // touser 优先用记录里的字段（新写入的 queue 都带，支持共享事件双推送）；
+        // 老记录没有 touser 字段 → 回退到 _openid（即创建者，单推送语义保持）
         await cloud.openapi.subscribeMessage.send({
-          touser: rec._openid,
+          touser: rec.touser || rec._openid,
           templateId: rec.templateId,
           page: 'pages/timeline/timeline',
           // miniprogramState 显式指定，影响通知点击会跳到哪个版本：
